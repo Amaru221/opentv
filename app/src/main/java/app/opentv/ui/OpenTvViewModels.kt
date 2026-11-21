@@ -509,6 +509,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     fun selectSource(sourceId: Long?) {
         selectedSource.value = sourceId
         settings.guideSourceId = sourceId
+        settings.guideSourceChosen = true
         selectedCategory.value = null
         favouritesOnly.value = false
     }
@@ -585,8 +586,18 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
                 // The flow's first emission is the empty seed from stateIn, not "the user deleted
                 // every provider" — acting on it cleared the remembered filter on every launch.
                 if (list.isEmpty()) return@collect
-                val chosen = selectedSource.value ?: return@collect
-                if (list.none { it.id == chosen }) {
+                val chosen = selectedSource.value
+                if (chosen == null && !settings.guideSourceChosen && list.size > 1) {
+                    // First run with more than one provider. Folding both providers' categories into
+                    // one rail ("Spain", "UK", "Movies", "Series" all together) was the default and it
+                    // reads as a bug: the shelves belong to different services. Pick one instead, and
+                    // leave "all sources" as a deliberate choice rather than the starting state.
+                    val first = list.first()
+                    selectedSource.value = first.id
+                    settings.guideSourceId = first.id
+                    return@collect
+                }
+                if (chosen != null && list.none { it.id == chosen }) {
                     selectedSource.value = null
                     settings.guideSourceId = null
                 }
