@@ -409,7 +409,7 @@ private fun GuideRow(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    modifier = Modifier.width(26.dp),
+                    modifier = Modifier.width(24.dp),
                 )
             }
             AsyncImage(

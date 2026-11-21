@@ -128,9 +128,17 @@ data class ScreenInfo(
     val guide: GuideMetrics
         get() {
             val row = (56f * fontScale.coerceIn(0.85f, 1.25f)).dp
+            /*
+             * The channel column is sized from the name it has to hold, not from a round number.
+             * Inside it, fixed chrome on every row is: 16 dp of horizontal padding, a number cell,
+             * the logo, an 8 dp gap and the favourite star. What is left is the name — and at
+             * 180 dp that came to 72 dp, about eight characters, which is what "Movistar LaL…"
+             * looked like on a phone. These widths give roughly 130-200 dp to the name depending
+             * on the screen, while leaving the timeline most of the width it had.
+             */
             return when {
                 form == FormFactor.TV -> GuideMetrics(
-                    channelColumn = 260.dp,
+                    channelColumn = 300.dp,
                     rowHeight = row,
                     minuteDp = 5f,
                     previewHeight = 160.dp,
@@ -140,10 +148,11 @@ data class ScreenInfo(
                     // 1080p panels with overscan crop the outer ~5%; 24 dp is that margin.
                     horizontalPadding = 24.dp,
                     showGridLines = true,
+                    starButtonSize = 24.dp,
                 )
 
                 form == FormFactor.TABLET -> GuideMetrics(
-                    channelColumn = 200.dp,
+                    channelColumn = 260.dp,
                     rowHeight = row,
                     minuteDp = 4.5f,
                     previewHeight = 140.dp,
@@ -152,19 +161,23 @@ data class ScreenInfo(
                     railWidth = 220.dp,
                     horizontalPadding = 16.dp,
                     showGridLines = true,
+                    starButtonSize = 24.dp,
                 )
 
                 // Handset, but wide enough for the grid (landscape, or a big phone sideways).
+                // 240 dp of column plus a coarser timeline: ~15 characters of name, and about an
+                // hour and a half of guide still on screen, which is what a phone can show.
                 widthDp >= 600 -> GuideMetrics(
-                    channelColumn = 180.dp,
+                    channelColumn = 240.dp,
                     rowHeight = row,
-                    minuteDp = 3.5f,
+                    minuteDp = 3f,
                     previewHeight = 132.dp,
                     previewVideoMaxWidth = 180.dp,
                     hidePreview = false,
                     railWidth = 200.dp,
                     horizontalPadding = 12.dp,
                     showGridLines = true,
+                    starButtonSize = 32.dp,
                 )
 
                 // Handset in portrait: the list, and no preview pane. At 360 dp the 16:9 card alone
