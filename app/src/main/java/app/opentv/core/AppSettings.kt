@@ -420,6 +420,35 @@ class AppSettings private constructor(context: Context) {
             prefs.getString(KEY_STREMIO_ADDONS, null)?.let { addonJson.decodeFromString<List<StremioAddon>>(it) }
         }.getOrNull() ?: emptyList()
 
+    // ---- Guide source filter -----------------------------------------------------------------
+
+    /**
+     * Which provider the live guide is scoped to, or null for all of them.
+     *
+     * Remembered per device: a household with a paid line and a free list should not have to pick
+     * its provider again every time the app opens. SharedPreferences has no null, so -1 means "all".
+     */
+    var guideSourceId: Long?
+        get() = prefs.getLong(KEY_GUIDE_SOURCE, -1L).takeIf { it >= 0L }
+        set(value) {
+            prefs.edit().putLong(KEY_GUIDE_SOURCE, value ?: -1L).apply()
+        }
+
+    /**
+     * Whether the user has ever picked a provider explicitly.
+     *
+     * The guide defaults to *one* provider when several are configured, because folding two
+     * providers' categories into one rail ("Spain", "UK", "Movies", "Series" side by side) is not a
+     * useful starting point — the category lists belong to different services. Choosing "all
+     * sources" is still possible, and this flag is what makes that choice stick instead of being
+     * overridden on the next launch.
+     */
+    var guideSourceChosen: Boolean
+        get() = prefs.getBoolean(KEY_GUIDE_SOURCE_CHOSEN, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_GUIDE_SOURCE_CHOSEN, value).apply()
+        }
+
     // ---- Guide suggestion --------------------------------------------------------------------
 
     /**
@@ -481,6 +510,8 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_TMDB_KEY = "tmdb_api_key"
         private const val KEY_STREMIO_ADDONS = "stremio_addons"
         private const val KEY_EPG_SUGGESTION = "epg_suggestion"
+        private const val KEY_GUIDE_SOURCE = "guide_source_id"
+        private const val KEY_GUIDE_SOURCE_CHOSEN = "guide_source_chosen"
         private const val KEY_PAD_START = "rec_pad_start_min"
         private const val KEY_PAD_END = "rec_pad_end_min"
         private const val KEY_REC_AUTOSWITCH = "rec_auto_switch"

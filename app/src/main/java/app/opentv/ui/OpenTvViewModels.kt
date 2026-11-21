@@ -217,7 +217,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     val selectedCategory = MutableStateFlow<String?>(null)
     val favouritesOnly = MutableStateFlow(false)
     /** Provider filter for the live guide. null = every source. Only surfaced when there's >1 source. */
-    val selectedSource = MutableStateFlow<Long?>(null)
+    val selectedSource = MutableStateFlow(settings.guideSourceId)
     private val query = MutableStateFlow("")
     private val nowTick = MutableStateFlow(System.currentTimeMillis())
 
@@ -508,6 +508,8 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     /** Switch the live guide's provider filter; the category resets since categories differ per source. */
     fun selectSource(sourceId: Long?) {
         selectedSource.value = sourceId
+        settings.guideSourceId = sourceId
+        settings.guideSourceChosen = true
         selectedCategory.value = null
         favouritesOnly.value = false
     }
@@ -574,6 +576,34 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     val sources: StateFlow<List<Source>> =
         graph.sourceRepository.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    init {
+        // The remembered provider may have been deleted or disabled since last launch. Leaving the
+        // filter pointing at it would show an empty guide with no explanation, so fall back to all.
+        // Declared here, after [sources], because property initialisers run in declaration order.
+        viewModelScope.launch {
+            sources.collect { list ->
+                // The flow's first emission is the empty seed from stateIn, not "the user deleted
+                // every provider" — acting on it cleared the remembered filter on every launch.
+                if (list.isEmpty()) return@collect
+                val chosen = selectedSource.value
+                if (chosen == null && !settings.guideSourceChosen && list.size > 1) {
+                    // First run with more than one provider. Folding both providers' categories into
+                    // one rail ("Spain", "UK", "Movies", "Series" all together) was the default and it
+                    // reads as a bug: the shelves belong to different services. Pick one instead, and
+                    // leave "all sources" as a deliberate choice rather than the starting state.
+                    val first = list.first()
+                    selectedSource.value = first.id
+                    settings.guideSourceId = first.id
+                    return@collect
+                }
+                if (chosen != null && list.none { it.id == chosen }) {
+                    selectedSource.value = null
+                    settings.guideSourceId = null
+                }
+            }
+        }
+    }
 
     /**
      * The manager's category rail: like [categoryGroups] but scoped to [managerSelectedSource], and

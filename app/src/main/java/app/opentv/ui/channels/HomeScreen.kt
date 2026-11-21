@@ -79,6 +79,7 @@ import app.opentv.core.requestIgnoreBatteryOptimizations
 import app.opentv.data.model.Channel
 import app.opentv.data.model.Programme
 import app.opentv.data.model.Reminder
+import app.opentv.data.model.Source
 import app.opentv.data.model.shownName
 import app.opentv.reminders.ReminderScheduler
 import app.opentv.player.PlaybackQueue
@@ -140,6 +141,9 @@ fun HomeScreen(
     val favouritesOnly by viewModel.favouritesOnly.collectAsState()
     val sources by viewModel.sources.collectAsState()
     val selectedSource by viewModel.selectedSource.collectAsState()
+    // Name of the provider the guide is scoped to, or null for "all sources". Used to label
+    // "All channels" so the scope is never ambiguous: "All channels · Movistar".
+    val scopeName = sources.firstOrNull { it.id == selectedSource }?.name
     val windowStart by viewModel.windowStartMillis.collectAsState()
     // How many days ahead the guide is scrolled (0 = live now). Drives the ‹ Today › nav.
     val guideDayOffset by viewModel.guideDayOffset.collectAsState()
@@ -372,7 +376,7 @@ fun HomeScreen(
                 item {
                     val allSelected = !favouritesOnly && selectedCategory == null
                     RailEntry(
-                        label = stringResource(R.string.guide_all_channels),
+                        label = allChannelsLabel(scopeName),
                         selected = allSelected,
                         onClick = { viewModel.selectCategory(null) },
                         modifier = if (allSelected) Modifier.focusRequester(railFocusRequester) else Modifier,
@@ -395,10 +399,21 @@ fun HomeScreen(
         Column(Modifier.weight(1f)) {
             // On a phone the categories are a chip strip: tappable, one line, no side panel.
             if (screen.form == FormFactor.HANDSET) {
+                // The provider switch used to live in the side rail, which a phone no longer has —
+                // so with two providers the guide silently merged them with no way to separate.
+                if (sources.size > 1) {
+                    SourceChips(
+                        sources = sources,
+                        selectedSourceId = selectedSource,
+                        onSelect = { viewModel.selectSource(it) },
+                        modifier = Modifier.padding(horizontal = metrics.horizontalPadding),
+                    )
+                }
                 CategoryChips(
                     categories = categories,
                     favouritesSelected = favouritesOnly,
                     selectedCategory = selectedCategory,
+                    scopeName = scopeName,
                     onFavourites = viewModel::selectFavourites,
                     onAll = { viewModel.selectCategory(null) },
                     onSelect = { viewModel.selectCategory(it) },
@@ -1146,6 +1161,55 @@ private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 private fun formatTime(utcMillis: Long): String = timeFormat.format(Date(utcMillis))
 
 /**
+ * The provider switch as chips, for touch screens.
+ *
+ * Only drawn when there is more than one provider: with a single source it would be a row of one
+ * chip saying nothing. Selecting one scopes the guide, the categories and favourites to it; the
+ * choice is remembered between launches by [app.opentv.core.AppSettings.guideSourceId].
+ */
+@Composable
+private fun SourceChips(
+    sources: List<Source>,
+    selectedSourceId: Long?,
+    onSelect: (Long?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item(key = "chip-source-all") {
+            FilterChip(
+                selected = selectedSourceId == null,
+                onClick = { onSelect(null) },
+                label = { Text(stringResource(R.string.channels_manager_all_sources), maxLines = 1) },
+            )
+        }
+        items(sources, key = { "chip-source-${it.id}" }) { source ->
+            FilterChip(
+                selected = selectedSourceId == source.id,
+                onClick = { onSelect(source.id) },
+                label = { Text(source.name, maxLines = 1) },
+            )
+        }
+    }
+}
+
+/**
+ * "All channels", plus the provider it is scoped to.
+ *
+ * With two providers configured the same row used to say "All channels" whether it meant every
+ * channel on the device or every channel of the one provider you had picked. The qualifier makes
+ * the scope explicit without adding a second label.
+ */
+@Composable
+private fun allChannelsLabel(scopeName: String?): String {
+    val base = stringResource(R.string.guide_all_channels)
+    return if (scopeName.isNullOrBlank()) base else "$base · $scopeName"
+}
+
+/**
  * The category rail, flattened into a horizontal strip of chips for touch screens.
  *
  * Same three kinds of entry the rail has (favourites, all channels, then each category), but
@@ -1157,6 +1221,7 @@ private fun CategoryChips(
     categories: List<ChannelsViewModel.CategoryGroup>,
     favouritesSelected: Boolean,
     selectedCategory: String?,
+    scopeName: String?,
     onFavourites: () -> Unit,
     onAll: () -> Unit,
     onSelect: (String) -> Unit,
@@ -1178,7 +1243,7 @@ private fun CategoryChips(
             FilterChip(
                 selected = !favouritesSelected && selectedCategory == null,
                 onClick = onAll,
-                label = { Text(stringResource(R.string.guide_all_channels), maxLines = 1) },
+                label = { Text(allChannelsLabel(scopeName), maxLines = 1) },
             )
         }
         items(categories, key = { "chip-${it.key}" }) { group ->
