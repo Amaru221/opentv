@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -174,6 +175,7 @@ fun ChannelList(
                 row = row,
                 nowMillis = now,
                 minHeight = metrics.rowHeight,
+                starSize = metrics.starButtonSize,
                 isSelected = row.key == selectedKey,
                 onSelect = { onSelectRow(row) },
                 onFocus = { onFocusRow(row) },
@@ -189,6 +191,7 @@ private fun ChannelListRow(
     row: ChannelsViewModel.Row,
     nowMillis: Long,
     minHeight: Dp,
+    starSize: Dp,
     isSelected: Boolean,
     onSelect: () -> Unit,
     onFocus: () -> Unit,
@@ -293,7 +296,7 @@ private fun ChannelListRow(
                 )
             }
         }
-        IconButton(onClick = onToggleFavourite, modifier = Modifier.size(28.dp)) {
+        IconButton(onClick = onToggleFavourite, modifier = Modifier.size(starSize)) {
             Icon(
                 imageVector = if (row.primary.favourite) Icons.Filled.Star else Icons.Outlined.StarOutline,
                 contentDescription = if (row.primary.favourite) stringResource(R.string.common_remove_favourite)
@@ -437,7 +440,7 @@ private fun GuideRow(
             // channel column, which is what squeezed the channel name down to ~90 dp.
             IconButton(
                 onClick = onToggleFavourite,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(metrics.starButtonSize),
             ) {
                 Icon(
                     imageVector = if (row.primary.favourite) Icons.Filled.Star else Icons.Outlined.StarOutline,
@@ -466,7 +469,9 @@ private fun GuideRow(
                 .horizontalScroll(scroll)
                 .width(totalWindowWidth(metrics))
                 .fillMaxHeight()
-                .drawBehind {
+                // drawWithContent, not drawBehind: the hairlines belong under the blocks, but the
+                // "now" cursor has to paint over them or a block hides it exactly when it matters.
+                .drawWithContent {
                     if (metrics.showGridLines) {
                         val step = halfHourWidth(metrics).toPx()
                         var x = step
@@ -475,6 +480,7 @@ private fun GuideRow(
                             x += step
                         }
                     }
+                    drawContent()
                     val nowX = xFor(nowMillis, windowStartMillis, metrics).toPx()
                     if (nowInWindow && nowX >= 0f && nowX <= size.width) {
                         drawLine(nowColor, Offset(nowX, 0f), Offset(nowX, size.height), 2f)

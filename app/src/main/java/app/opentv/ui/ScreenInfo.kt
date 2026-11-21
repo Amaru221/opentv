@@ -62,6 +62,11 @@ data class GuideMetrics(
     val horizontalPadding: Dp,
     /** Hairlines every half hour. Costs one draw pass, makes the columns readable. */
     val showGridLines: Boolean,
+    /**
+     * Tap target for the favourite star. 28 dp is right under a d-pad, which aims precisely; a
+     * finger needs more, and 48 dp in a 260 dp column would take a fifth of the channel name.
+     */
+    val starButtonSize: Dp = 28.dp,
 ) {
     /** A programme block narrower than this cannot show a title; it is drawn as a bare pill. */
     val minReadableBlock: Dp = 48.dp
@@ -175,6 +180,7 @@ data class ScreenInfo(
                     railWidth = 200.dp,
                     horizontalPadding = 12.dp,
                     showGridLines = false,
+                    starButtonSize = 40.dp,
                 )
             }
         }
