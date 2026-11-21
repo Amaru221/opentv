@@ -4,16 +4,15 @@
 
 No account. No subscription. No server of ours between you and your provider.
 
-[![Build](https://github.com/opentvproject/opentv/actions/workflows/build.yml/badge.svg)](https://github.com/opentvproject/opentv/actions/workflows/build.yml)
+[![Build](https://github.com/Amaru221/opentv/actions/workflows/build.yml/badge.svg)](https://github.com/Amaru221/opentv/actions/workflows/build.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsors-ea4aaa.svg)](https://github.com/sponsors/legionnaireneyland)
 
 ---
 
-> **Support OpenTV** — it's free and always will be. If it saved you from a dead "lifetime"
-> app, you can chip in via **[GitHub Sponsors](https://github.com/sponsors/legionnaireneyland)**
-> or **[PayPal](https://www.paypal.com/donate/?business=leetobin1982@gmail.com&item_name=Support+OpenTV&no_recurring=0&currency_code=GBP)**.
-> Entirely optional; the app is never paywalled.
+> **This is a fork.** It is downstream of [opentvproject/opentv](https://github.com/opentvproject/opentv)
+> and keeps its GPL-3.0 licence, its copyright notices and its full history. The original project is
+> the work of its contributors; changes made here are additional and are released under the same
+> licence. Please report issues found here to this repository, not upstream.
 
 ## Why this exists
 
@@ -77,19 +76,15 @@ Open-source through and through — the About screen carries the licence, the li
 
 ## Install
 
-**→ [Install page](https://opentvproject.github.io/opentv/)** — step-by-step for Chromecast with
+**→ [Install page](https://amaru221.github.io/opentv/)** — step-by-step for Chromecast with
 Google TV, Android TV boxes, Fire TV Sticks, and phones.
 
 On a TV, the quickest route is the **[Downloader app](https://www.aftvnews.com/downloader/)** —
-enter the code:
+open the install page above on the TV's browser and type the short URL it shows you.
 
-```
-6398449
-```
-
-That code (or `aftv.news/6398449` in a browser) always points at the newest APK, so it never
-goes stale. On a phone, the [install page](https://opentvproject.github.io/opentv/) is a
-one-tap download. Or grab the APK straight from [Releases](../../releases).
+The install page works out which repository it belongs to from its own address, so on this fork
+it reads this repository's releases. On a phone it is a one-tap download. Or grab the APK
+straight from [Releases](../../releases).
 
 Every release is built by GitHub Actions from a tagged commit, and the workflow that built it
 is public — you can check the APK against the source, or rebuild it yourself, rather than
@@ -101,7 +96,7 @@ first build running.
 ## Build it yourself
 
 ```bash
-git clone https://github.com/opentvproject/opentv.git
+git clone https://github.com/Amaru221/opentv.git
 cd opentv
 ./gradlew assembleDebug
 ```
@@ -143,11 +138,9 @@ OpenTV is free and always will be. There is nothing to buy, no premium tier, and
 subscription — the failure mode this project was built in response to is a promise nobody
 could keep, so we are not making one.
 
-If it saves you money or annoyance and you want to say thanks, you can sponsor the project via
-[GitHub Sponsors](https://github.com/sponsors/legionnaireneyland) or
-[PayPal](https://www.paypal.com/donate/?business=leetobin1982@gmail.com&item_name=Support+OpenTV&no_recurring=0&currency_code=GBP)
-— see [.github/FUNDING.yml](.github/FUNDING.yml). Tips fund nothing except spare-evening development;
-nobody is owed a feature for one, and nothing is gated behind one.
+This fork has no funding configured: no sponsor button, no donation link, and nothing gated
+behind a tip. If you want to support the original work, the upstream project's own channels are
+the place to do it.
 
 ## Licence
 
