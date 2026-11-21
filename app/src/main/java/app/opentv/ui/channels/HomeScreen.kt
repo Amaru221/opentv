@@ -79,6 +79,7 @@ import app.opentv.core.requestIgnoreBatteryOptimizations
 import app.opentv.data.model.Channel
 import app.opentv.data.model.Programme
 import app.opentv.data.model.Reminder
+import app.opentv.data.model.Source
 import app.opentv.data.model.shownName
 import app.opentv.reminders.ReminderScheduler
 import app.opentv.player.PlaybackQueue
@@ -395,6 +396,16 @@ fun HomeScreen(
         Column(Modifier.weight(1f)) {
             // On a phone the categories are a chip strip: tappable, one line, no side panel.
             if (screen.form == FormFactor.HANDSET) {
+                // The provider switch used to live in the side rail, which a phone no longer has —
+                // so with two providers the guide silently merged them with no way to separate.
+                if (sources.size > 1) {
+                    SourceChips(
+                        sources = sources,
+                        selectedSourceId = selectedSource,
+                        onSelect = { viewModel.selectSource(it) },
+                        modifier = Modifier.padding(horizontal = metrics.horizontalPadding),
+                    )
+                }
                 CategoryChips(
                     categories = categories,
                     favouritesSelected = favouritesOnly,
@@ -1144,6 +1155,42 @@ private fun EmptyState(onAddSource: () -> Unit) {
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
 private fun formatTime(utcMillis: Long): String = timeFormat.format(Date(utcMillis))
+
+/**
+ * The provider switch as chips, for touch screens.
+ *
+ * Only drawn when there is more than one provider: with a single source it would be a row of one
+ * chip saying nothing. Selecting one scopes the guide, the categories and favourites to it; the
+ * choice is remembered between launches by [app.opentv.core.AppSettings.guideSourceId].
+ */
+@Composable
+private fun SourceChips(
+    sources: List<Source>,
+    selectedSourceId: Long?,
+    onSelect: (Long?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item(key = "chip-source-all") {
+            FilterChip(
+                selected = selectedSourceId == null,
+                onClick = { onSelect(null) },
+                label = { Text(stringResource(R.string.channels_manager_all_sources), maxLines = 1) },
+            )
+        }
+        items(sources, key = { "chip-source-${it.id}" }) { source ->
+            FilterChip(
+                selected = selectedSourceId == source.id,
+                onClick = { onSelect(source.id) },
+                label = { Text(source.name, maxLines = 1) },
+            )
+        }
+    }
+}
 
 /**
  * The category rail, flattened into a horizontal strip of chips for touch screens.
