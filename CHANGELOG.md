@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.12.5
+
+- **The player bar keeps four buttons and pushes the rest into a "⋯" row.** Subtitles, audio,
+  aspect, record, picture-in-picture and the new sleep timer live in a row anchored to the bar.
+  Eight icon+label chips in one row was wider than a phone, and the labels were being squeezed
+  until "Record" ran one letter per line.
+- **A timeline above the buttons**, with elapsed / total and a scrubber. Shown only when the
+  content can be seeked — a live channel has no duration.
+- **Sleep timer in the player**, with its list (off, 15, 30, 45, 60, 90, 120 min). It stops
+  playback and returns to the guide; it does not lock the device, and because the player releases
+  its keep-screen-on flag on the way out, the system can then sleep the screen on its own.
+- **The on-screen keyboard is a keyboard.** It drew fixed 48 dp keys — 552 dp for the widest row —
+  so everything past the second row was cut off. Keys are now sized from the available width, the
+  rows are staggered 10/10/9/7, and shift, space and backspace are where you expect them. Shift
+  also toggles case: before, every character came out upper case, which breaks case-sensitive hosts.
+- **The nav rail no longer loses Search, Me and Settings** on a phone in portrait: the tabs scroll
+  and those three stay pinned.
+- **A title is no longer squeezed by its buttons.** The TV guide header put its title and two
+  buttons on one row; on a phone the title had no width and broke one letter per line.
+- **The movie player gets the same bar** — four round buttons and an overflow row.
+
 ## 0.12.4
 
 - **Two providers are no longer mixed into one list.** With more than one provider configured, the
