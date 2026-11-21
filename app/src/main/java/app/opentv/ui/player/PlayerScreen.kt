@@ -17,6 +17,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -50,14 +52,19 @@ import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -65,6 +72,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -93,8 +101,12 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import app.opentv.R
 import app.opentv.core.ServiceLocator
 import app.opentv.core.SleepTimer
@@ -168,6 +180,22 @@ fun PlayerScreen(
         }
     }
 
+    // Immersive playback: the picture should own the whole screen, so the status and navigation
+    // bars are hidden while the player is up. Swiping from an edge brings them back temporarily
+    // (BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE) and they slide away again, which is how every video
+    // app behaves on a phone. A television has no system bars, so this is a no-op there.
+    DisposableEffect(Unit) {
+        val window = context.findActivity()?.window
+        val bars = window?.let { WindowCompat.getInsetsController(it, view) }
+        bars?.apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            bars?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     var variants by remember { mutableStateOf<List<Channel>>(emptyList()) }
     var currentId by remember { mutableStateOf<Long?>(null) }
     // The channel we were on before this one — powers the "Last channel" recall in the list.
@@ -179,6 +207,8 @@ fun PlayerScreen(
 
     var controlsVisible by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf(Panel.NONE) }
+    // The "⋯" row of occasional actions, anchored to the bar rather than floating over the picture.
+    var moreOpen by remember { mutableStateOf(false) }
     var channelListVisible by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     // Offered once per session the first time the user records here while OpenTV isn't exempt from
@@ -511,7 +541,11 @@ fun PlayerScreen(
                     Spacer(Modifier.height(16.dp))
                 }
 
-                if (channelTitle.isNotEmpty()) {
+                // A picker open means the bar has to give up everything that is not the picker:
+                // in landscape there are 360 dp of height, and a panel plus title plus the overflow
+                // row plus the timeline plus the transport is more than that — the whole bar then
+                // overflows upward and the picker lands in the middle of the picture.
+                if (channelTitle.isNotEmpty() && panel == Panel.NONE) {
                     Text(
                         channelTitle,
                         style = MaterialTheme.typography.headlineSmall,
@@ -522,17 +556,65 @@ fun PlayerScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
+                // ---- Overflow: the occasional actions, as a row anchored to the bar -----------
+                // A Material DropdownMenu was the obvious choice and the wrong one: five items
+                // hanging off a button at the bottom end up floating across the middle of the
+                // picture. This row lives in the bar's own column, so it cannot leave the bottom.
+                if (moreOpen && panel == Panel.NONE) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        BarChip(Icons.Filled.Subtitles, stringResource(R.string.player_subtitles), panel == Panel.SUBTITLES) {
+                            panel = if (panel == Panel.SUBTITLES) Panel.NONE else Panel.SUBTITLES; interaction++
+                        }
+                        BarChip(Icons.Filled.Audiotrack, stringResource(R.string.player_audio), panel == Panel.AUDIO) {
+                            panel = if (panel == Panel.AUDIO) Panel.NONE else Panel.AUDIO; interaction++
+                        }
+                        BarChip(Icons.Filled.AspectRatio, stringResource(R.string.player_aspect), panel == Panel.ASPECT) {
+                            panel = if (panel == Panel.ASPECT) Panel.NONE else Panel.ASPECT; interaction++
+                        }
+                        val recordingThis = activeRecordings.any { it.channelId == currentId }
+                        BarChip(
+                            icon = Icons.Filled.FiberManualRecord,
+                            label = if (recordingThis) stringResource(R.string.common_stop) else stringResource(R.string.player_record),
+                            selected = recordingThis,
+                            iconTint = Color(0xFFE53935),
+                        ) { toggleRecord() }
+                        if (pipSupported) {
+                            BarChip(Icons.Filled.PictureInPictureAlt, stringResource(R.string.player_pop_out), false) {
+                                (context.findActivity() as? app.opentv.MainActivity)?.enterPipNow()
+                                interaction++
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+
+                // ---- Time bar -------------------------------------------------------------
+                // Above the buttons, not instead of them: the transport sits where a thumb
+                // reaches, and the scrubbable timeline sits right over it.
+                if (controller.isSeekable) {
+                    PlayerSeekBar(controller.player)
+                    Spacer(Modifier.height(10.dp))
+                }
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Four primary actions at most, so nothing has to shrink. The previous single
+                    // row held eight icon+label chips; on a phone they were squeezed until "Record"
+                    // was one letter per line, which is what that vertical text was.
                     if (controller.isSeekable) {
-                        BarChip(Icons.Filled.FastRewind, stringResource(R.string.player_rewind), false) {
+                        TransportButton(Icons.Filled.FastRewind, stringResource(R.string.player_rewind)) {
                             controller.seekBackward(); interaction++
                         }
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(8.dp))
                     }
-                    BarChip(
+                    TransportButton(
                         icon = if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
                         label = if (paused) stringResource(R.string.common_play) else stringResource(R.string.player_pause),
-                        selected = false,
                         focusRequester = barFocus,
                     ) {
                         paused = !paused
@@ -540,45 +622,33 @@ fun PlayerScreen(
                         interaction++
                     }
                     if (controller.isSeekable) {
-                        Spacer(Modifier.width(10.dp))
-                        BarChip(Icons.Filled.FastForward, stringResource(R.string.player_forward), false) {
+                        Spacer(Modifier.width(8.dp))
+                        TransportButton(Icons.Filled.FastForward, stringResource(R.string.player_forward)) {
                             controller.seekForward(); interaction++
                         }
                     }
 
-                    Spacer(Modifier.width(20.dp))
-                    BarChip(Icons.Filled.Subtitles, stringResource(R.string.player_subtitles), panel == Panel.SUBTITLES) {
-                        panel = if (panel == Panel.SUBTITLES) Panel.NONE else Panel.SUBTITLES; interaction++
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    BarChip(Icons.Filled.Audiotrack, stringResource(R.string.player_audio), panel == Panel.AUDIO) {
-                        panel = if (panel == Panel.AUDIO) Panel.NONE else Panel.AUDIO; interaction++
-                    }
+                    // Quality stays on the bar because it is the one picker people change while
+                    // watching; the rest live behind the overflow.
                     if (variants.size > 1) {
-                        Spacer(Modifier.width(10.dp))
-                        BarChip(Icons.Filled.HighQuality, stringResource(R.string.player_quality), panel == Panel.QUALITY) {
-                            panel = if (panel == Panel.QUALITY) Panel.NONE else Panel.QUALITY; interaction++
-                        }
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    BarChip(Icons.Filled.AspectRatio, stringResource(R.string.player_aspect), panel == Panel.ASPECT) {
-                        panel = if (panel == Panel.ASPECT) Panel.NONE else Panel.ASPECT; interaction++
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    val recordingThis = activeRecordings.any { it.channelId == currentId }
-                    BarChip(
-                        icon = Icons.Filled.FiberManualRecord,
-                        label = if (recordingThis) stringResource(R.string.common_stop) else stringResource(R.string.player_record),
-                        selected = recordingThis,
-                        iconTint = Color(0xFFE53935),
-                    ) { toggleRecord() }
-                    if (pipSupported) {
-                        Spacer(Modifier.width(10.dp))
-                        BarChip(Icons.Filled.PictureInPictureAlt, stringResource(R.string.player_pop_out), false) {
-                            (context.findActivity() as? app.opentv.MainActivity)?.enterPipNow()
+                        Spacer(Modifier.width(8.dp))
+                        val currentQuality = variants.firstOrNull { it.id == currentId }?.qualityLabel
+                            ?.ifBlank { null }
+                        BarChip(
+                            icon = Icons.Filled.HighQuality,
+                            label = currentQuality ?: stringResource(R.string.player_quality),
+                            selected = panel == Panel.QUALITY,
+                        ) {
+                            panel = if (panel == Panel.QUALITY) Panel.NONE else Panel.QUALITY
                             interaction++
                         }
                     }
+
+                    Spacer(Modifier.width(8.dp))
+                    TransportButton(
+                        icon = Icons.Filled.MoreVert,
+                        label = stringResource(R.string.player_more),
+                    ) { moreOpen = !moreOpen }
                 }
             }
         }
@@ -744,6 +814,11 @@ private fun OptionPanel(
         Panel.NONE -> ""
     }
 
+    // Cap the list against the screen, not against a fixed 260 dp: in landscape on a phone the
+    // panel used to eat most of the height and read as "a menu in the middle of the picture".
+    val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    val listMaxHeight = (screenHeight * 0.32f).dp.coerceIn(96.dp, 260.dp)
+
     Column(
         Modifier
             .widthIn(max = 460.dp)
@@ -754,7 +829,7 @@ private fun OptionPanel(
         Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.7f))
         Spacer(Modifier.height(8.dp))
         Column(
-            Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()),
+            Modifier.heightIn(max = listMaxHeight).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (options.isEmpty()) {
@@ -895,6 +970,111 @@ private fun BarChip(
         Icon(icon, contentDescription = label, tint = if (focused) content else (iconTint ?: content))
         Spacer(Modifier.width(6.dp))
         Text(label, style = MaterialTheme.typography.labelLarge, color = content)
+    }
+}
+
+/**
+ * A round, icon-only button for the transport controls.
+ *
+ * Icons alone keep the row short enough that nothing has to shrink: the old row of icon+label
+ * chips held eight entries and, on a phone, the labels were squeezed until they wrapped one letter
+ * per line. The label survives as the accessibility description.
+ */
+@Composable
+private fun TransportButton(
+    icon: ImageVector,
+    label: String,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val container = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f)
+    val content = if (focused) MaterialTheme.colorScheme.onPrimary else Color.White
+
+    Box(
+        modifier = Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .size(52.dp)
+            .clip(CircleShape)
+            .background(container)
+            .then(
+                if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                else Modifier,
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = label, tint = content, modifier = Modifier.size(26.dp))
+    }
+}
+
+/**
+ * The playback timeline, above the buttons.
+ *
+ * A live channel has no duration, so the caller only draws this when the media item is seekable —
+ * for a recording or a catch-up programme. Position is polled rather than observed because
+ * ExoPlayer has no position flow, and half a second is enough for a clock that reads in seconds.
+ */
+@OptIn(UnstableApi::class)
+@Composable
+private fun PlayerSeekBar(player: ExoPlayer) {
+    var position by remember { mutableLongStateOf(0L) }
+    var duration by remember { mutableLongStateOf(0L) }
+    var scrubbing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(player) {
+        while (true) {
+            if (!scrubbing) {
+                position = player.currentPosition.coerceAtLeast(0L)
+                val d = player.duration
+                duration = if (d == C.TIME_UNSET) 0L else d.coerceAtLeast(0L)
+            }
+            delay(500)
+        }
+    }
+
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            formatClock(position),
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Slider(
+            value = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f,
+            onValueChange = { fraction ->
+                scrubbing = true
+                if (duration > 0L) {
+                    position = (fraction * duration).toLong()
+                    player.seekTo(position)
+                }
+            },
+            onValueChangeFinished = { scrubbing = false },
+            colors = SliderDefaults.colors(
+                thumbColor = Color.White,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = Color.White.copy(alpha = 0.28f),
+            ),
+            modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+        )
+        Text(
+            formatClock(duration),
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+    }
+}
+
+/** 1:05 or 1:02:05 — no leading zero on the hour, which is how every player shows it. */
+private fun formatClock(millis: Long): String {
+    val total = (millis / 1000L).coerceAtLeast(0L)
+    val hours = total / 3600L
+    val minutes = (total % 3600L) / 60L
+    val seconds = total % 60L
+    return if (hours > 0L) {
+        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(Locale.US, "%d:%02d", minutes, seconds)
     }
 }
 
