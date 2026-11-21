@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.12.1
+
+- **The guide now fits the screen it is on.** It was built for a television and shipped unchanged
+  to phones, where the channel column, the nav rail and the margins left 37 dp for the timeline —
+  about nine minutes of guide — and the preview card was wider than the screen it sat in. On a
+  phone you now get a channel list with the categories as a tappable strip, and no preview pane,
+  because the list already shows what is on now, what is next and how far through it is.
+- **A phone held sideways is a phone, not a tablet.** Everything is sized from the screen: 260 dp
+  channel column and 5 dp per minute on a TV, 180 dp and 3.5 on a phone in landscape. The category
+  rail is replaced by chips on touch devices — there is no d-pad there to slide a hidden panel open.
+- **The channel name has room again.** The favourite star went from 40 dp to 28 dp (40 on a phone,
+  where a finger needs it) and rows grew with the system font size instead of being fixed at 64 dp.
+- **Added a "now" line and half-hour grid lines** to the guide, so you can see where you are in the
+  evening and read a block's start time against the header.
+- **Programme blocks line up with the time header again.** A short programme used to be widened to
+  keep its title readable, and everything after it drifted out of step with the clock.
+- **System bars no longer cover the app on a phone**, and the preview pane on a TV is 160 dp instead
+  of 212, so it takes a quarter of the screen instead of two fifths.
+
 ## 0.12.0
 
 First release from this fork. Everything in 0.11.10 plus:
