@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.12.3
+
+Documentation only — no behaviour changes.
+
+- **The README now documents the free Spanish DTT lists.** OpenTV still ships with no channels and
+  no playlists, but "free-to-air television" is a real, legal, account-free case the app already
+  supports, and it was undocumented. The addresses for the channel list and its guide, the steps in
+  the app, and the three caveats (Antena 3 and laSexta are not in it, the links rotate, and
+  TDTChannels is a third party we fetch from rather than something we bundle) are now in one place.
+- **Donation references removed.** The About screen lost its donate section in 0.12.0; the README
+  kept advertising it, screenshot included. Both are gone, and the screenshot is replaced with a
+  current one.
+
 ## 0.12.2
 
 - **The channel name has room in landscape and on a TV.** The column was 180 dp wide with 92 dp of
