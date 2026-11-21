@@ -74,6 +74,37 @@ Open-source through and through — the About screen carries the licence, the li
 - **No content.** OpenTV is a player. You bring a service you already pay for. The project has
   no affiliation with any provider and does not help you find one.
 
+## Free-to-air TV, if you want it
+
+There is one exception worth documenting, because it is free and legal and needs no account:
+**Spanish free-to-air television** is published as open stream lists, and they load into the M3U
+source the app already has. Nothing is bundled — you add it yourself, or you don't.
+
+| What | Address |
+| --- | --- |
+| Channel list (M3U) | `https://www.tdtchannels.com/lists/tv.m3u` |
+| Guide (XMLTV) | `https://www.tdtchannels.com/epg/TV.xml.gz` |
+
+**Adding it:** *Settings → Providers → Add provider → **M3U playlist URL***, paste the first
+address, then *Save and load*. The first sync pulls around 470 Spanish channels. The playlist
+normally declares its own guide; if the guide comes up empty, add the second address under
+*Settings → TV guide → Add your own guide (XMLTV URL)*.
+
+Radio works the same way, with `https://www.tdtchannels.com/lists/radio.m3u` (about 980 stations),
+or both at once with `https://www.tdtchannels.com/lists/tvradio.m3u`.
+
+Worth knowing before you add it:
+
+- **Antena 3 and laSexta are not in the list.** Atresmedia does not publish a free stream of its
+  channels, and the list only carries streams the broadcasters themselves make public. Neither is
+  any pay channel: no Movistar, no DAZN, no football rights.
+- **The links rotate.** Broadcasters change them, and a channel that worked last month can be a
+  dead tile today. That is a property of the list, not of the app.
+- **It is somebody else's project.** [TDTChannels](https://github.com/LaQuay/TDTChannels) is a
+  community-maintained catalogue (Apache-2.0), unaffiliated with OpenTV. We do not bundle, proxy or
+  mirror its lists — the app fetches them from their server at your request, exactly as it would
+  fetch your provider's playlist. If their service goes away, this stops working.
+
 ## Install
 
 **→ [Install page](https://amaru221.github.io/opentv/)** — step-by-step for Chromecast with
