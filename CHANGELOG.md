@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.12.0
+
+First release from this fork. Everything in 0.11.10 plus:
+
+- **Automated backups are off.** Your provider credentials, your SMB password and your watch
+  history no longer get copied to Google Drive by Android's own backup service. That was the one
+  way those credentials could leave the device without you asking for it.
+- **Device sync no longer sends your stream URLs.** A provider URL contains your username and
+  password, and the sync bundle was built from them. It now carries a hash instead, so two boxes
+  still agree on what you watched without either one seeing the other's account. Sync with an
+  older build keeps working.
+- **Free guides are offered, not switched on.** The app used to notice your channels looked like
+  they came from one region and download a guide from a third-party host by itself. It now asks
+  first, in Settings → TV guide.
+- **Update checks look at this repository.** Builds from here were checking the upstream project's
+  releases and would have replaced themselves with that APK.
+- Privacy page rewritten to list every destination the app can reach.
+
 ## 0.11.10
 
 - **Fire TV: app row fix, take two.** v0.11.9 replaced the placeholder artwork but the stick still
