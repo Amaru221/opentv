@@ -59,10 +59,6 @@ The live TV guide — programme grid, favourites, and a live preview:
 | Movies &amp; series | Settings |
 | ![Movies](docs/screenshots/04-movies.png) | ![Settings](docs/screenshots/05-settings.png) |
 
-Open-source through and through — the About screen carries the licence, the links, and a donation QR:
-
-![About](docs/screenshots/06-about.png)
-
 ## What it deliberately does not do
 
 - **No servers of ours, no web dashboard, no account.** Your provider credentials never leave
@@ -168,10 +164,6 @@ guessing. If a channel fails on your setup, [open an issue](../../issues/new/cho
 OpenTV is free and always will be. There is nothing to buy, no premium tier, and no lifetime
 subscription — the failure mode this project was built in response to is a promise nobody
 could keep, so we are not making one.
-
-This fork has no funding configured: no sponsor button, no donation link, and nothing gated
-behind a tip. If you want to support the original work, the upstream project's own channels are
-the place to do it.
 
 ## Licence
 
