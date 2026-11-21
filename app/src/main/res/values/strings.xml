@@ -421,6 +421,7 @@
 
     <!-- ============================ On-screen keyboard ============================ -->
     <string name="kbd_space">Space</string>
+    <string name="kbd_shift">Shift</string>
     <string name="kbd_del">Del</string>
     <string name="kbd_clear">Clear</string>
     <string name="kbd_paste">Paste</string>

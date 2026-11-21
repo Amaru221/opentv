@@ -17,6 +17,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,15 +37,18 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
@@ -151,6 +156,9 @@ fun VodPlayerScreen(
 
     var paused by remember { mutableStateOf(false) }
     var vodPanel by remember { mutableStateOf(VodPanel.NONE) }
+    // The occasional actions (subtitles, audio, sleep) live behind the "⋯" button, anchored to the
+    // bar, for the same reason as the live player: five chips in a row is wider than a phone.
+    var vodMoreOpen by remember { mutableStateOf(false) }
     val panelFocus = remember { FocusRequester() }
     var positionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
@@ -405,12 +413,38 @@ fun VodPlayerScreen(
 
                 Spacer(Modifier.height(10.dp))
 
+                // Overflow row, anchored to the bar — same reason as the live player: five
+                // icon+label chips in one row is wider than a phone.
+                if (vodMoreOpen && vodPanel == VodPanel.NONE) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        VodChip(Icons.Filled.ClosedCaption, stringResource(R.string.player_subtitles), selected = vodPanel == VodPanel.SUBTITLES) {
+                            vodPanel = if (vodPanel == VodPanel.SUBTITLES) VodPanel.NONE else VodPanel.SUBTITLES
+                            interaction++
+                        }
+                        VodChip(Icons.Filled.Audiotrack, stringResource(R.string.player_audio), selected = vodPanel == VodPanel.AUDIO) {
+                            vodPanel = if (vodPanel == VodPanel.AUDIO) VodPanel.NONE else VodPanel.AUDIO
+                            interaction++
+                        }
+                        VodChip(Icons.Filled.Bedtime, stringResource(R.string.settings_sleep_timer), selected = vodPanel == VodPanel.SLEEP) {
+                            vodPanel = if (vodPanel == VodPanel.SLEEP) VodPanel.NONE else VodPanel.SLEEP
+                            interaction++
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    VodChip(Icons.Filled.FastRewind, stringResource(R.string.player_rewind)) {
+                    VodRoundButton(Icons.Filled.FastRewind, stringResource(R.string.player_rewind)) {
                         if (growingRec) seekRelative(-15_000) else controller.seekBackward(); interaction++
                     }
-                    Spacer(Modifier.width(10.dp))
-                    VodChip(
+                    Spacer(Modifier.width(8.dp))
+                    VodRoundButton(
                         icon = if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
                         label = if (paused) stringResource(R.string.common_play) else stringResource(R.string.player_pause),
                         focusRequester = barFocus,
@@ -419,19 +453,13 @@ fun VodPlayerScreen(
                         controller.player.playWhenReady = !paused
                         interaction++
                     }
-                    Spacer(Modifier.width(10.dp))
-                    VodChip(Icons.Filled.FastForward, stringResource(R.string.player_forward)) {
+                    Spacer(Modifier.width(8.dp))
+                    VodRoundButton(Icons.Filled.FastForward, stringResource(R.string.player_forward)) {
                         if (growingRec) seekRelative(15_000) else controller.seekForward(); interaction++
                     }
-                    Spacer(Modifier.width(20.dp))
-                    VodChip(Icons.Filled.ClosedCaption, stringResource(R.string.player_subtitles)) {
-                        vodPanel = if (vodPanel == VodPanel.SUBTITLES) VodPanel.NONE else VodPanel.SUBTITLES
-                        interaction++
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    VodChip(Icons.Filled.Audiotrack, stringResource(R.string.player_audio)) {
-                        vodPanel = if (vodPanel == VodPanel.AUDIO) VodPanel.NONE else VodPanel.AUDIO
-                        interaction++
+                    Spacer(Modifier.width(8.dp))
+                    VodRoundButton(Icons.Filled.MoreVert, stringResource(R.string.player_more)) {
+                        vodMoreOpen = !vodMoreOpen
                     }
                 }
             }
@@ -444,10 +472,15 @@ private fun VodChip(
     icon: ImageVector,
     label: String,
     focusRequester: FocusRequester? = null,
+    selected: Boolean = false,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val container = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f)
+    val container = when {
+        focused -> MaterialTheme.colorScheme.primary
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+        else -> Color.White.copy(alpha = 0.14f)
+    }
     val content = if (focused) MaterialTheme.colorScheme.onPrimary else Color.White
     Row(
         modifier = Modifier
@@ -469,7 +502,34 @@ private fun VodChip(
     }
 }
 
-private enum class VodPanel { NONE, SUBTITLES, AUDIO }
+private enum class VodPanel { NONE, SUBTITLES, AUDIO, SLEEP }
+
+@Composable
+private fun VodRoundButton(
+    icon: ImageVector,
+    label: String,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val container = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f)
+    val content = if (focused) MaterialTheme.colorScheme.onPrimary else Color.White
+    Box(
+        modifier = Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .size(52.dp)
+            .clip(CircleShape)
+            .background(container)
+            .then(
+                if (focused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier,
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = label, tint = content, modifier = Modifier.size(26.dp))
+    }
+}
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -480,6 +540,10 @@ private fun TrackPanel(
     firstFocus: FocusRequester,
     onDone: () -> Unit,
 ) {
+    if (panel == VodPanel.SLEEP) {
+        SleepPanel(firstFocus, onDone)
+        return
+    }
     val trackType = if (panel == VodPanel.SUBTITLES) C.TRACK_TYPE_TEXT else C.TRACK_TYPE_AUDIO
     val groups = tracks.groups.filter { it.type == trackType }
     val options = mutableListOf<Triple<String, Boolean, () -> Unit>>()
@@ -517,6 +581,38 @@ private fun TrackPanel(
             }
             options.forEachIndexed { index, (label, selected, onClick) ->
                 TrackRow(label, selected, onClick, if (index == 0) firstFocus else null)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SleepPanel(firstFocus: FocusRequester, onDone: () -> Unit) {
+    val remaining = SleepTimer.minutesRemaining()
+    Column(
+        Modifier
+            .widthIn(max = 420.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.Black.copy(alpha = 0.92f))
+            .padding(16.dp),
+    ) {
+        Text(
+            stringResource(R.string.settings_sleep_timer),
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState())) {
+            TrackRow(stringResource(R.string.settings_sleep_off), remaining == null, {
+                SleepTimer.clear(); onDone()
+            }, firstFocus)
+            SleepTimer.presets.forEach { minutes ->
+                TrackRow(
+                    label = stringResource(R.string.settings_sleep_minutes, minutes),
+                    selected = remaining != null && remaining <= minutes,
+                    onClick = { SleepTimer.armMinutes(minutes); onDone() },
+                    focusRequester = null,
+                )
             }
         }
     }

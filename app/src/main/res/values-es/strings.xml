@@ -371,6 +371,7 @@
     <string name="search_start_hint">Empieza a escribir para buscar canales, películas y series.</string>
     <string name="search_no_results">Sin resultados para «%1$s».</string>
     <string name="kbd_space">Espacio</string>
+    <string name="kbd_shift">Mayús</string>
     <string name="kbd_del">Supr</string>
     <string name="kbd_clear">Borrar</string>
     <string name="kbd_paste">Pegar</string>
