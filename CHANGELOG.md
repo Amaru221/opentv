@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.12.4
+
+- **Two providers are no longer mixed into one list.** With more than one provider configured, the
+  guide used to start in "all sources", which folded every provider's categories into a single rail
+  — Spain, UK, Movies and Series side by side, though those shelves belong to different services.
+  It now starts on one provider, and the categories you see all come from it.
+- **The provider switch is on phones again.** It lived in the side rail, which the compact layout
+  replaced with chips, so on a phone it had stopped being drawn at all. There is now a chip per
+  provider above the categories, shown only when there is more than one.
+- **The choice is remembered**, per device, and falls back to "all" if that provider is deleted.
+  Choosing "all sources" is still possible — it is now a decision rather than the default.
+- **"All channels" says which provider it means**: "All channels · Movistar", or plain when the
+  guide really is showing everything.
+
 ## 0.12.3
 
 Documentation only — no behaviour changes.
