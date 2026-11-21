@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.12.6
+
+- **Settings headers stop squeezing their buttons.** Nearly every settings screen put its title and
+  its "Done" button in one row with the spacer weighted instead of the title, so the title took the
+  full width first and the button was left with almost nothing — its label wrapped one letter per
+  line. The title now yields (one line, ellipsis) and the buttons keep their size.
+- **The channel manager is a 30 / 70 split** instead of a fixed 280 dp sidebar, and 42 / 58 on a
+  phone, where 30% of 360 dp left the category rail too narrow to read.
+- **Providers moved into a modal behind the sidebar logo**, which until now did nothing. The guide
+  no longer spends a row of chips (phone) or a block at the top of the rail (TV) on choosing one.
+- **Opening a channel preselects Watch**, with the record action as one more row, instead of landing
+  on "Record what's on now".
+- **"Sleep timer" is now just "Timer"** ("Temporizador"), including in the player's overflow menu.
+
 ## 0.12.5
 
 - **The player bar keeps four buttons and pushes the rest into a "⋯" row.** Subtitles, audio,
