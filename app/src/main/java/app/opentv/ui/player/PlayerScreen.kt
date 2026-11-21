@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This file is part of OpenTV.
  * Copyright (C) 2026 The OpenTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
@@ -47,6 +47,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
@@ -131,12 +132,12 @@ import java.util.Locale
  * Full-screen live playback.
  *
  * The video fills the screen with no chrome. A single control bar slides up from the bottom and
- * holds everything — transport (play/pause, rewind, forward), and pickers for subtitles, audio,
+ * holds everything â€” transport (play/pause, rewind, forward), and pickers for subtitles, audio,
  * quality and aspect ratio. It hides after a few seconds and any remote button brings it back.
  * Nothing is ever left permanently painted over the picture.
  *
  * Subtitles and audio come from the actual tracks in the stream ([PlayerController.tracks]) and
- * are selected explicitly — that is the fix for "captions on but nothing shows", which happens
+ * are selected explicitly â€” that is the fix for "captions on but nothing shows", which happens
  * when the renderer is merely enabled and left to guess a language.
  */
 @OptIn(UnstableApi::class)
@@ -165,7 +166,7 @@ fun PlayerScreen(
     val activeRecordings by graph.recordingRepository.observeActive().collectAsState(initial = emptyList())
 
     // Hold the screen awake while the player is on screen. A view-level keepScreenOn flag isn't
-    // reliable on every TV box, so we set the window flag on the Activity directly — that's what
+    // reliable on every TV box, so we set the window flag on the Activity directly â€” that's what
     // actually stops the system screensaver from firing mid-programme. keepScreenOn stays on too,
     // as a belt-and-braces backstop.
     DisposableEffect(Unit) {
@@ -198,7 +199,7 @@ fun PlayerScreen(
 
     var variants by remember { mutableStateOf<List<Channel>>(emptyList()) }
     var currentId by remember { mutableStateOf<Long?>(null) }
-    // The channel we were on before this one — powers the "Last channel" recall in the list.
+    // The channel we were on before this one â€” powers the "Last channel" recall in the list.
     var previousId by remember { mutableStateOf<Long?>(null) }
     // Digits typed on the remote accumulate here, then jump to that channel number after a beat.
     var numberEntry by remember { mutableStateOf("") }
@@ -207,7 +208,7 @@ fun PlayerScreen(
 
     var controlsVisible by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf(Panel.NONE) }
-    // The "⋯" row of occasional actions, anchored to the bar rather than floating over the picture.
+    // The "â‹¯" row of occasional actions, anchored to the bar rather than floating over the picture.
     var moreOpen by remember { mutableStateOf(false) }
     var channelListVisible by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
@@ -328,7 +329,7 @@ fun PlayerScreen(
         if (subtitlesDefault && hasText && !textChosen) controller.setSubtitlesEnabled(true)
     }
 
-    // Auto-hide the bar after a few seconds — but never while paused or with a picker open.
+    // Auto-hide the bar after a few seconds â€” but never while paused or with a picker open.
     LaunchedEffect(controlsVisible, interaction, state, paused, panel) {
         if (controlsVisible && !paused && panel == Panel.NONE &&
             state is PlayerController.State.Playing
@@ -349,7 +350,7 @@ fun PlayerScreen(
         }
     }
 
-    // Back steps back out one layer at a time — channel list, then picker, then the control bar —
+    // Back steps back out one layer at a time â€” channel list, then picker, then the control bar â€”
     // and only leaves the player once nothing is on screen. From immersive it's a single press out,
     // so it never traps you, but it also no longer throws you all the way to the guide just because
     // you wanted to dismiss the bar.
@@ -393,7 +394,7 @@ fun PlayerScreen(
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 val digit = keyToDigit(event.key)
                 when {
-                    // Never swallow Back/Escape — they must reach the back handler.
+                    // Never swallow Back/Escape â€” they must reach the back handler.
                     event.key == Key.Back || event.key == Key.Escape -> false
                     // Typing a channel number jumps to it, TiviMate-style.
                     digit != null -> {
@@ -405,7 +406,7 @@ fun PlayerScreen(
                         interaction++
                         false
                     }
-                    // Channel up/down works whether or not the bar is showing — this remote has no
+                    // Channel up/down works whether or not the bar is showing â€” this remote has no
                     // CH+/CH- keys, so up/down IS the channel changer. Each zap flashes the bar as a
                     // channel banner, then it auto-hides.
                     event.key == Key.DirectionUp || event.key == Key.ChannelUp -> { zapBy(-1); reveal(); true }
@@ -543,7 +544,7 @@ fun PlayerScreen(
 
                 // A picker open means the bar has to give up everything that is not the picker:
                 // in landscape there are 360 dp of height, and a panel plus title plus the overflow
-                // row plus the timeline plus the transport is more than that — the whole bar then
+                // row plus the timeline plus the transport is more than that â€” the whole bar then
                 // overflows upward and the picker lands in the middle of the picture.
                 if (channelTitle.isNotEmpty() && panel == Panel.NONE) {
                     Text(
@@ -576,6 +577,9 @@ fun PlayerScreen(
                         }
                         BarChip(Icons.Filled.AspectRatio, stringResource(R.string.player_aspect), panel == Panel.ASPECT) {
                             panel = if (panel == Panel.ASPECT) Panel.NONE else Panel.ASPECT; interaction++
+                        }
+                        BarChip(Icons.Filled.Bedtime, stringResource(R.string.settings_sleep_timer), panel == Panel.SLEEP) {
+                            panel = if (panel == Panel.SLEEP) Panel.NONE else Panel.SLEEP; interaction++
                         }
                         val recordingThis = activeRecordings.any { it.channelId == currentId }
                         BarChip(
@@ -653,7 +657,7 @@ fun PlayerScreen(
             }
         }
 
-        // Left-side transparent channel list — d-pad Left opens it, pick a channel to switch.
+        // Left-side transparent channel list â€” d-pad Left opens it, pick a channel to switch.
         AnimatedVisibility(
             visible = channelListVisible && !inPip,
             enter = fadeIn(),
@@ -745,7 +749,7 @@ private fun ChannelListRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // A "Last" tag, or the channel number if the provider gives one — a fixed-width slot so
+        // A "Last" tag, or the channel number if the provider gives one â€” a fixed-width slot so
         // the logos and names line up down the list.
         Text(
             leadingLabel ?: item.number?.toString().orEmpty(),
@@ -764,7 +768,7 @@ private fun ChannelListRow(
     }
 }
 
-private enum class Panel { NONE, SUBTITLES, AUDIO, QUALITY, ASPECT }
+private enum class Panel { NONE, SUBTITLES, AUDIO, QUALITY, ASPECT, SLEEP }
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -803,6 +807,26 @@ private fun OptionPanel(
                 onResize(AspectRatioFrameLayout.RESIZE_MODE_FILL); onDone()
             },
         )
+        // Same timer the settings screen arms; this is just the shortcut where people actually
+        // are when they decide they are falling asleep.
+        Panel.SLEEP -> {
+            val remaining = SleepTimer.minutesRemaining()
+            buildList {
+                add(Option(stringResource(R.string.settings_sleep_off), remaining == null) {
+                    SleepTimer.clear(); onDone()
+                })
+                SleepTimer.presets.forEach { minutes ->
+                    add(
+                        Option(
+                            label = stringResource(R.string.settings_sleep_minutes, minutes),
+                            selected = remaining != null && remaining <= minutes,
+                        ) {
+                            SleepTimer.armMinutes(minutes); onDone()
+                        },
+                    )
+                }
+            }
+        }
         Panel.NONE -> emptyList()
     }
 
@@ -811,13 +835,14 @@ private fun OptionPanel(
         Panel.AUDIO -> stringResource(R.string.player_audio)
         Panel.QUALITY -> stringResource(R.string.player_quality)
         Panel.ASPECT -> stringResource(R.string.player_aspect_ratio_title)
+        Panel.SLEEP -> stringResource(R.string.settings_sleep_timer)
         Panel.NONE -> ""
     }
 
     // Cap the list against the screen, not against a fixed 260 dp: in landscape on a phone the
     // panel used to eat most of the height and read as "a menu in the middle of the picture".
     val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
-    val listMaxHeight = (screenHeight * 0.32f).dp.coerceIn(96.dp, 260.dp)
+    val listMaxHeight = (screenHeight * 0.26f).dp.coerceIn(88.dp, 220.dp)
 
     Column(
         Modifier
@@ -1012,7 +1037,7 @@ private fun TransportButton(
 /**
  * The playback timeline, above the buttons.
  *
- * A live channel has no duration, so the caller only draws this when the media item is seekable —
+ * A live channel has no duration, so the caller only draws this when the media item is seekable â€”
  * for a recording or a catch-up programme. Position is polled rather than observed because
  * ExoPlayer has no position flow, and half a second is enough for a clock that reads in seconds.
  */
@@ -1065,7 +1090,7 @@ private fun PlayerSeekBar(player: ExoPlayer) {
     }
 }
 
-/** 1:05 or 1:02:05 — no leading zero on the hour, which is how every player shows it. */
+/** 1:05 or 1:02:05 â€” no leading zero on the hour, which is how every player shows it. */
 private fun formatClock(millis: Long): String {
     val total = (millis / 1000L).coerceAtLeast(0L)
     val hours = total / 3600L

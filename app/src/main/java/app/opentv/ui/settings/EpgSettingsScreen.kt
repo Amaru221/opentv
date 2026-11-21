@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
@@ -64,14 +65,22 @@ fun EpgSettingsScreen(
             .fillMaxSize()
             .padding(horizontal = 32.dp, vertical = 24.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_guide_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.weight(1f))
+        // A title next to two buttons is a squeeze on a phone: the title had no width budget of its
+        // own, so "TV guide" broke one letter per line and the buttons still did not fit. Title on
+        // its own line (with an ellipsis), actions on the next — both keep their space at any width.
+        Text(
+            stringResource(R.string.settings_guide_title),
+            style = MaterialTheme.typography.headlineMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = { viewModel.refresh() }, enabled = !ui.syncing) {
-                Text(if (ui.syncing) stringResource(R.string.epg_updating) else stringResource(R.string.epg_update_now))
+                Text(if (ui.syncing) stringResource(R.string.epg_updating) else stringResource(R.string.epg_update_now), maxLines = 1)
             }
-            Spacer(Modifier.width(12.dp))
-            OutlinedButton(onClick = onBack) { Text(stringResource(R.string.common_done)) }
+            OutlinedButton(onClick = onBack) { Text(stringResource(R.string.common_done), maxLines = 1) }
         }
 
         ui.statusLine?.let { line ->

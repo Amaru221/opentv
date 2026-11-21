@@ -13,6 +13,8 @@ import app.opentv.core.StatusBus
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -297,40 +299,47 @@ private fun NavRail(
             .focusGroup()
             .onFocusChanged { expanded = it.hasFocus }
             .padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        // Brand: the logo mark alone when collapsed, the mark + "OpenTV" wordmark when open. The
-        // name stays on purpose — it's what people search for.
-        Row(
-            Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        // Tabs scroll; the utilities below are pinned. Scrollable-all-of-it pushed Settings, Search
+        // and Me off the bottom of a short screen (a phone in portrait), and pinning-all-of-it cut
+        // them off too. This keeps them reachable at any height and always visible.
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_opentv_logo),
-                contentDescription = "OpenTV",
-                modifier = Modifier.size(34.dp),
-            )
-            if (expanded) {
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    "OpenTV",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            // Brand: the logo mark alone when collapsed, the mark + "OpenTV" wordmark when open. The
+            // name stays on purpose — it's what people search for.
+            Row(
+                Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_opentv_logo),
+                    contentDescription = "OpenTV",
+                    modifier = Modifier.size(34.dp),
                 )
+                if (expanded) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "OpenTV",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            tabs.forEach { t ->
+                RailItem(t.icon, stringResource(t.labelRes), expanded, current == t) { onSelect(t) }
             }
         }
+
         Spacer(Modifier.height(8.dp))
-
-        tabs.forEach { t ->
-            RailItem(t.icon, stringResource(t.labelRes), expanded, current == t) { onSelect(t) }
-        }
-
-        Spacer(Modifier.height(1.dp).fillMaxWidth())
-        Spacer(Modifier.weight(1f))
-
         RailItem(Icons.Filled.Search, stringResource(R.string.nav_search), expanded, false, onOpenSearch)
         RailItem(Icons.Filled.Person, activeProfileName, expanded, false, onOpenProfiles)
         RailItem(Icons.Filled.Settings, stringResource(R.string.nav_settings), expanded, false, onOpenSettings)
