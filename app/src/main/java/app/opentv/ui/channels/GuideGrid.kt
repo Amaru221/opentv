@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,7 +43,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -57,6 +62,7 @@ import app.opentv.data.model.Channel
 import app.opentv.data.model.Programme
 import app.opentv.data.model.shownName
 import app.opentv.ui.ChannelsViewModel
+import app.opentv.ui.GuideMetrics
 import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,16 +77,31 @@ import java.util.Locale
  *
  * Every row and the time header share one [horizontalScroll] state, so scrolling any of them
  * scrolls all of them in lock-step and the columns stay time-aligned. Within a row, blocks
- * are placed left to right at [MINUTE] width per minute; a leading spacer covers any gap
- * before the first programme, and gaps between programmes get their own spacer. No absolute
- * positioning, no measuring pass — just widths, which is cheap enough for a lazy list of
- * hundreds of channels on a weak TV box.
+ * are placed left to right at [GuideMetrics.minuteDp] width per minute; a leading spacer covers
+ * any gap before the first programme, and gaps between programmes get their own spacer. No
+ * absolute positioning, no measuring pass — just widths, which is cheap enough for a lazy list
+ * of hundreds of channels on a weak TV box.
+ *
+ * ## Block widths are exact
+ *
+ * An earlier version floored a short programme's width to keep its title readable, then repaid
+ * the borrowed width out of the following gap. That made the title legible at the cost of the one
+ * thing a guide must get right: the block no longer lined up with the time header, and neither did
+ * anything after it. Blocks are now drawn at their true width, and one too narrow for a title is
+ * drawn as a bare pill — the highlighted programme's name is on screen in the preview pane anyway.
+ *
+ * ## Sizes come from the screen
+ *
+ * Nothing here is a constant any more. [metrics] carries the channel column, row height, pixels
+ * per minute and whether to draw grid lines, resolved from the form factor and the user's font
+ * size in [app.opentv.ui.rememberScreenInfo].
  */
 @Composable
 fun GuideGrid(
     rows: List<ChannelsViewModel.Row>,
     windowStartMillis: Long,
     selectedKey: Any?,
+    metrics: GuideMetrics,
     onSelectRow: (ChannelsViewModel.Row) -> Unit,
     onFocusRow: (ChannelsViewModel.Row) -> Unit,
     onProgramme: (ChannelsViewModel.Row, Programme) -> Unit = { _, _ -> },
@@ -100,7 +121,7 @@ fun GuideGrid(
     Column(modifier.fillMaxSize()) {
         // No pager buttons: the programme blocks are d-pad focusable, so moving right along a row
         // scrolls the whole timeline (header and every row in lock-step) on its own.
-        TimeHeader(windowStartMillis, scroll)
+        TimeHeader(windowStartMillis, scroll, metrics)
 
         LazyColumn(
             contentPadding = PaddingValues(bottom = 16.dp),
@@ -112,6 +133,7 @@ fun GuideGrid(
                     windowStartMillis = windowStartMillis,
                     nowMillis = now,
                     scroll = scroll,
+                    metrics = metrics,
                     isSelected = row.key == selectedKey,
                     onSelect = { onSelectRow(row) },
                     onFocus = { onFocusRow(row) },
@@ -127,14 +149,15 @@ fun GuideGrid(
 /**
  * The live channels as a plain vertical list instead of the time-grid — one channel per row with
  * its logo, name, and now/next line. This is the "list mode instead of tiles" some users prefer on
- * a busy line-up. It keeps the exact same focus/key contract as [GuideGrid] so [HomeScreen] can
- * swap between the two with nothing else changing: focus follows the d-pad (updating the preview),
- * OK opens the channel menu, and LEFT from a row asks the host to reopen the category rail.
+ * a busy line-up, and the only sane layout on a phone in portrait: at 360 dp the grid leaves 37 dp
+ * for the timeline. It keeps the exact same focus/key contract as [GuideGrid] so [HomeScreen] can
+ * swap between the two with nothing else changing.
  */
 @Composable
 fun ChannelList(
     rows: List<ChannelsViewModel.Row>,
     selectedKey: Any?,
+    metrics: GuideMetrics,
     onSelectRow: (ChannelsViewModel.Row) -> Unit,
     onFocusRow: (ChannelsViewModel.Row) -> Unit,
     onToggleFavourite: (ChannelsViewModel.Row) -> Unit = {},
@@ -151,6 +174,8 @@ fun ChannelList(
             ChannelListRow(
                 row = row,
                 nowMillis = now,
+                minHeight = metrics.rowHeight,
+                starSize = metrics.starButtonSize,
                 isSelected = row.key == selectedKey,
                 onSelect = { onSelectRow(row) },
                 onFocus = { onFocusRow(row) },
@@ -165,6 +190,8 @@ fun ChannelList(
 private fun ChannelListRow(
     row: ChannelsViewModel.Row,
     nowMillis: Long,
+    minHeight: Dp,
+    starSize: Dp,
     isSelected: Boolean,
     onSelect: () -> Unit,
     onFocus: () -> Unit,
@@ -175,6 +202,7 @@ private fun ChannelListRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .heightIn(min = minHeight)
             .clip(RoundedCornerShape(8.dp))
             .background(
                 if (isSelected) MaterialTheme.colorScheme.primaryContainer
@@ -268,33 +296,50 @@ private fun ChannelListRow(
                 )
             }
         }
-        IconButton(onClick = onToggleFavourite, modifier = Modifier.size(40.dp)) {
+        IconButton(onClick = onToggleFavourite, modifier = Modifier.size(starSize)) {
             Icon(
                 imageVector = if (row.primary.favourite) Icons.Filled.Star else Icons.Outlined.StarOutline,
                 contentDescription = if (row.primary.favourite) stringResource(R.string.common_remove_favourite)
                 else stringResource(R.string.common_favourite),
                 tint = if (row.primary.favourite) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
             )
         }
     }
 }
 
 @Composable
-private fun TimeHeader(windowStartMillis: Long, scroll: androidx.compose.foundation.ScrollState) {
-    Row(Modifier.fillMaxWidth().height(28.dp)) {
+private fun TimeHeader(windowStartMillis: Long, scroll: androidx.compose.foundation.ScrollState, metrics: GuideMetrics) {
+    val halfHourWidth = halfHourWidth(metrics)
+    val outline = MaterialTheme.colorScheme.outline
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(32.dp),
+    ) {
         // Empty corner above the channel column.
-        Box(Modifier.width(CHANNEL_COLUMN))
+        Box(Modifier.width(metrics.channelColumn))
         Row(
             Modifier
                 .horizontalScroll(scroll)
-                .background(MaterialTheme.colorScheme.surface),
+                .width(totalWindowWidth(metrics))
+                .drawBehind {
+                    // Hairlines at each half hour, so a block's edge can be read against a time.
+                    val step = halfHourWidth.toPx()
+                    var x = step
+                    while (x < size.width) {
+                        drawLine(outline.copy(alpha = 0.35f), Offset(x, 0f), Offset(x, size.height), 1f)
+                        x += step
+                    }
+                    drawLine(outline.copy(alpha = 0.6f), Offset(0f, size.height), Offset(size.width, size.height), 1f)
+                },
         ) {
             // A label every half hour across the whole window.
             repeat(HOURS_IN_WINDOW * 2) { i ->
                 val slotStart = windowStartMillis + i * HALF_HOUR_MS
                 Box(
-                    Modifier.width(HALF_HOUR_WIDTH).height(28.dp).padding(start = 6.dp),
+                    Modifier.width(halfHourWidth).height(32.dp).padding(start = 6.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Text(
@@ -314,6 +359,7 @@ private fun GuideRow(
     windowStartMillis: Long,
     nowMillis: Long,
     scroll: androidx.compose.foundation.ScrollState,
+    metrics: GuideMetrics,
     isSelected: Boolean,
     onSelect: () -> Unit,
     onFocus: () -> Unit,
@@ -325,13 +371,13 @@ private fun GuideRow(
     // channel the preview is playing — it only changes when you press OK.
     var focused by remember { mutableStateOf(false) }
 
-    Row(Modifier.fillMaxWidth().height(ROW_HEIGHT)) {
+    Row(Modifier.fillMaxWidth().height(metrics.rowHeight)) {
 
         // ---- Fixed channel cell (does not scroll) --------------------------------------
         Row(
             Modifier
-                .width(CHANNEL_COLUMN)
-                .fillMaxSize()
+                .width(metrics.channelColumn)
+                .fillMaxHeight()
                 .clip(RoundedCornerShape(8.dp))
                 .background(
                     if (isSelected) MaterialTheme.colorScheme.primaryContainer
@@ -354,7 +400,7 @@ private fun GuideRow(
                     if (it.isFocused) onFocus()
                 }
                 .clickable(onClick = onSelect)
-                .padding(horizontal = 10.dp),
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             row.primary.number?.let { num ->
@@ -363,13 +409,13 @@ private fun GuideRow(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    modifier = Modifier.width(28.dp),
+                    modifier = Modifier.width(26.dp),
                 )
             }
             AsyncImage(
                 model = row.primary.logoUrl,
                 contentDescription = null,
-                modifier = Modifier.size(34.dp).clip(RoundedCornerShape(4.dp)),
+                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(4.dp)),
             )
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
@@ -390,10 +436,11 @@ private fun GuideRow(
             }
             // Favourite toggle. Phone/tablet users had no visible way to favourite from the guide
             // (only the Channel Manager) — this puts a tappable star on every row; it stays d-pad
-            // focusable so it works from a TV remote too.
+            // focusable so it works from a TV remote too. Kept small: at 40 dp it took 18% of the
+            // channel column, which is what squeezed the channel name down to ~90 dp.
             IconButton(
                 onClick = onToggleFavourite,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(metrics.starButtonSize),
             ) {
                 Icon(
                     imageVector = if (row.primary.favourite) Icons.Filled.Star else Icons.Outlined.StarOutline,
@@ -401,6 +448,7 @@ private fun GuideRow(
                     else stringResource(R.string.common_favourite),
                     tint = if (row.primary.favourite) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
@@ -408,15 +456,45 @@ private fun GuideRow(
         Spacer(Modifier.width(3.dp))
 
         // ---- Scrolling programme strip -------------------------------------------------
-        Row(Modifier.horizontalScroll(scroll)) {
+        // One draw pass paints the half-hour hairlines and the "now" cursor for the whole row.
+        // The cursor is drawn at the window's own coordinates, so it stays glued to the content
+        // while the row scrolls — that is the thing a guide is looked at for.
+        val gridColor = MaterialTheme.colorScheme.outline
+        val nowColor = MaterialTheme.colorScheme.primary
+        // "Now" only belongs on the today window: browsing tomorrow would otherwise draw a
+        // cursor pinned to the left edge as if the current programme had just started.
+        val nowInWindow = nowMillis in windowStartMillis..(windowStartMillis + HOURS_IN_WINDOW * 3_600_000L)
+        Box(
+            Modifier
+                .horizontalScroll(scroll)
+                .width(totalWindowWidth(metrics))
+                .fillMaxHeight()
+                // drawWithContent, not drawBehind: the hairlines belong under the blocks, but the
+                // "now" cursor has to paint over them or a block hides it exactly when it matters.
+                .drawWithContent {
+                    if (metrics.showGridLines) {
+                        val step = halfHourWidth(metrics).toPx()
+                        var x = step
+                        while (x < size.width) {
+                            drawLine(gridColor.copy(alpha = 0.22f), Offset(x, 0f), Offset(x, size.height), 1f)
+                            x += step
+                        }
+                    }
+                    drawContent()
+                    val nowX = xFor(nowMillis, windowStartMillis, metrics).toPx()
+                    if (nowInWindow && nowX >= 0f && nowX <= size.width) {
+                        drawLine(nowColor, Offset(nowX, 0f), Offset(nowX, size.height), 2f)
+                    }
+                },
+        ) {
             val programmes = row.programmes
             if (programmes.isEmpty()) {
                 // Honest placeholder spanning the window, so a guide-less channel reads as
                 // "no guide" rather than as a suspiciously empty gap.
                 Box(
                     Modifier
-                        .width(HALF_HOUR_WIDTH * HOURS_IN_WINDOW.toFloat() * 2)
-                        .fillMaxSize()
+                        .width(totalWindowWidth(metrics))
+                        .fillMaxHeight()
                         .padding(end = 3.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)),
@@ -426,40 +504,31 @@ private fun GuideRow(
                         stringResource(R.string.guide_no_info),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
             } else {
                 var cursor = windowStartMillis
-                // A programme almost over (or a very short one) would otherwise be a sliver too
-                // thin to read its name — the "Poi n..." problem. We floor each block at
-                // [MIN_BLOCK_WIDTH] so the title stays legible, then carry the borrowed width as
-                // `debt` and repay it out of the following gaps, so everything downstream stays
-                // aligned with the time header instead of drifting right.
-                var debt = 0.dp
-                for (programme in programmes) {
-                    // Clamp to the window's left edge; a programme that started earlier is
-                    // drawn from `windowStart` so its block does not push everything right.
-                    val start = programme.startUtcMillis.coerceAtLeast(windowStartMillis)
-                    val gap = widthFor(cursor, start)
-                    val repaid = minOf(debt, gap)
-                    debt -= repaid
-                    val spacer = gap - repaid
-                    if (spacer > 0.dp) {
-                        Spacer(Modifier.width(spacer))
+                Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
+                    for (programme in programmes) {
+                        // Clamp to the window's left edge; a programme that started earlier is
+                        // drawn from `windowStart` so its block does not push everything right.
+                        val start = programme.startUtcMillis.coerceAtLeast(windowStartMillis)
+                        val gap = widthFor(cursor, start, metrics)
+                        if (gap > 0.dp) Spacer(Modifier.width(gap))
+                        val end = programme.endUtcMillis
+                        val isNow = nowMillis in programme.startUtcMillis until end
+                        val drawnWidth = widthFor(start, end, metrics)
+                        ProgrammeBlock(
+                            title = programme.title,
+                            width = drawnWidth,
+                            isNow = isNow,
+                            progress = if (isNow) programme.progressAt(nowMillis) else 0f,
+                            showText = drawnWidth >= metrics.minReadableBlock,
+                            onClick = { onProgramme(programme) },
+                        )
+                        cursor = end
                     }
-                    val end = programme.endUtcMillis
-                    val isNow = nowMillis in programme.startUtcMillis until end
-                    val trueWidth = widthFor(start, end)
-                    val drawnWidth = maxOf(trueWidth, MIN_BLOCK_WIDTH)
-                    debt += drawnWidth - trueWidth
-                    ProgrammeBlock(
-                        title = programme.title,
-                        width = drawnWidth,
-                        isNow = isNow,
-                        progress = if (isNow) programme.progressAt(nowMillis) else 0f,
-                        onClick = { onProgramme(programme) },
-                    )
-                    cursor = end
                 }
             }
         }
@@ -467,12 +536,19 @@ private fun GuideRow(
 }
 
 @Composable
-private fun ProgrammeBlock(title: String, width: Dp, isNow: Boolean, progress: Float, onClick: () -> Unit) {
+private fun ProgrammeBlock(
+    title: String,
+    width: Dp,
+    isNow: Boolean,
+    progress: Float,
+    showText: Boolean,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     Box(
         Modifier
             .width(width)
-            .fillMaxSize()
+            .fillMaxHeight()
             .padding(end = 3.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(
@@ -493,18 +569,20 @@ private fun ProgrammeBlock(title: String, width: Dp, isNow: Boolean, progress: F
             .focusable()
             .clickable(onClick = onClick),
     ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = when {
-                focused -> MaterialTheme.colorScheme.onPrimary
-                isNow -> MaterialTheme.colorScheme.onPrimaryContainer
-                else -> MaterialTheme.colorScheme.onSurface
-            },
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.CenterStart).padding(horizontal = 8.dp),
-        )
+        if (showText) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = when {
+                    focused -> MaterialTheme.colorScheme.onPrimary
+                    isNow -> MaterialTheme.colorScheme.onPrimaryContainer
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.align(Alignment.CenterStart).padding(horizontal = 8.dp),
+            )
+        }
         // How far through the current programme we are — a live fill along the bottom edge.
         if (isNow && progress > 0f) {
             Box(
@@ -518,20 +596,24 @@ private fun ProgrammeBlock(title: String, width: Dp, isNow: Boolean, progress: F
     }
 }
 
-/** Minutes between two instants, as guide width. Never negative; tiny slots stay legible. */
-private fun widthFor(fromMillis: Long, toMillis: Long): Dp {
+/** Minutes between two instants, as guide width. Never negative. */
+private fun widthFor(fromMillis: Long, toMillis: Long, metrics: GuideMetrics): Dp {
     val minutes = ((toMillis - fromMillis) / 60_000L).coerceAtLeast(0)
-    return (minutes * MINUTE_DP).dp
+    return (minutes * metrics.minuteDp).dp
 }
 
-// A weak TV box will happily scroll this; the whole strip is ~12h * 60 * 4dp = ~2880dp wide.
-private const val MINUTE_DP = 4f
+/** Where an instant sits inside the scrolling window, in dp from the window's left edge. */
+private fun xFor(millis: Long, windowStartMillis: Long, metrics: GuideMetrics): Dp {
+    val minutes = ((millis - windowStartMillis) / 60_000L).coerceAtLeast(0)
+    return (minutes * metrics.minuteDp).dp
+}
+
+private fun halfHourWidth(metrics: GuideMetrics): Dp = (30 * metrics.minuteDp).dp
+
+private fun totalWindowWidth(metrics: GuideMetrics): Dp =
+    (HOURS_IN_WINDOW * 60 * metrics.minuteDp).dp
+
 private const val HOURS_IN_WINDOW = 24
 private const val HALF_HOUR_MS = 30 * 60 * 1000L
-private val CHANNEL_COLUMN = 220.dp
-private val ROW_HEIGHT = 64.dp
-// Floor for a programme block so a nearly-finished or very short show still shows its name.
-private val MIN_BLOCK_WIDTH = 72.dp
-private val HALF_HOUR_WIDTH: Dp = (30 * MINUTE_DP).dp
 
 private val clockFormat = SimpleDateFormat("HH:mm", Locale.getDefault())

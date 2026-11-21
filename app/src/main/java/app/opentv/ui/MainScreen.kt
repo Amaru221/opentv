@@ -18,13 +18,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
@@ -159,7 +162,18 @@ fun MainScreen(
     // The rail sits beside the content and pushes it, rather than floating over it. The Live TV
     // screen has its own category rail down its left edge, and an overlaying menu would land on top
     // of it and leave a sliver poking out — so they live side by side and never collide.
-    Column(Modifier.fillMaxSize()) {
+    //
+    // On a phone the activity is edge-to-edge, so the system bars have to be inset or the rail and
+    // the guide slide underneath the status bar and the gesture handle. A television has neither,
+    // and padding there would only eat overscan margin it already accounts for.
+    Column(
+        Modifier
+            .fillMaxSize()
+            .then(
+                if (isTelevision) Modifier
+                else Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
+            ),
+    ) {
       Row(Modifier.weight(1f).fillMaxWidth()) {
         NavRail(
             tabs = visibleTabs,
@@ -174,7 +188,6 @@ fun MainScreen(
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when (tab) {
                 Tab.LIVE -> HomeScreen(
-                    isTelevision = isTelevision,
                     hasSources = hasSources,
                     isSyncing = isSyncing,
                     onPlayChannel = onPlayChannel,
@@ -266,8 +279,13 @@ private fun NavRail(
 ) {
     // Expand whenever focus is anywhere inside the rail; collapse back to icons when it leaves.
     var expanded by remember { mutableStateOf(false) }
+    // A phone's rail has to be narrower: 76 dp collapsed of a 360 dp screen is 21% given away
+    // permanently, before the guide's own channel column.
+    val screen = rememberScreenInfo()
+    val collapsedWidth = if (screen.isCompact) 64.dp else RAIL_COLLAPSED
+    val expandedWidth = if (screen.isCompact) 196.dp else RAIL_EXPANDED
     val width by animateDpAsState(
-        targetValue = if (expanded) RAIL_EXPANDED else RAIL_COLLAPSED,
+        targetValue = if (expanded) expandedWidth else collapsedWidth,
         label = "railWidth",
     )
 

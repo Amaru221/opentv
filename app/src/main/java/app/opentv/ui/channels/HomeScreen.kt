@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -82,8 +84,10 @@ import app.opentv.reminders.ReminderScheduler
 import app.opentv.player.PlaybackQueue
 import app.opentv.player.PlayerController
 import app.opentv.ui.ChannelsViewModel
+import app.opentv.ui.FormFactor
 import app.opentv.ui.RecordingBackgroundDialog
 import app.opentv.ui.RecordingBackgroundPrompt
+import app.opentv.ui.rememberScreenInfo
 import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -108,7 +112,6 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun HomeScreen(
-    isTelevision: Boolean,
     hasSources: Boolean,
     isSyncing: Boolean,
     onPlayChannel: (Channel) -> Unit,
@@ -122,6 +125,14 @@ fun HomeScreen(
     val settings = remember { graph.settings }
     val previewEnabled by settings.guidePreviewVideo.collectAsState()
     val channelLayout by settings.channelLayout.collectAsState()
+
+    // Everything visual in this screen is sized from the screen it is on. On a 360 dp phone the
+    // grid leaves 37 dp for the timeline, so the list is not a preference there — it is the only
+    // layout that works, and the preview pane is dropped because a 16:9 card on that width starved
+    // the text column to zero.
+    val screen = rememberScreenInfo()
+    val metrics = screen.guide
+    val effectiveLayout = if (screen.isCompact) AppSettings.ChannelLayout.LIST else channelLayout
 
     val categories by viewModel.visibleCategoryGroups.collectAsState()
     val rows by viewModel.rows.collectAsState()
@@ -167,9 +178,9 @@ fun HomeScreen(
     // The rail is full-width while focus is on it, then slides shut once focus moves into the
     // guide (onFocusRow) so the grid gets the whole width. Pressing d-pad LEFT from the guide's
     // leftmost (channel) column slides it back and drops focus on the selected category.
-    var railExpanded by remember { mutableStateOf(true) }
+    var railExpanded by remember { mutableStateOf(!screen.isCompact) }
     val railWidth by animateDpAsState(
-        targetValue = if (railExpanded) 240.dp else 0.dp,
+        targetValue = if (railExpanded) metrics.railWidth else 0.dp,
         label = "railWidth",
     )
     val railFocusRequester = remember { FocusRequester() }
@@ -296,6 +307,11 @@ fun HomeScreen(
         // ---- Category rail -----------------------------------------------------------------
         // Width animates to 0 while focus is in the guide (see onFocusRow) so the grid gets the
         // whole screen; d-pad LEFT from the guide's channel column slides it back (onExitLeft…).
+        //
+        // Skipped entirely on a phone: there is no d-pad to press LEFT, so a collapsible panel with
+        // no touch way back in is a dead end, and 200 dp of a 360 dp screen is not an option
+        // either. Phones get [CategoryChips] above the list instead, in either orientation.
+        if (screen.form != FormFactor.HANDSET) {
         Column(
             Modifier
                 .width(railWidth)
@@ -373,9 +389,22 @@ fun HomeScreen(
                 }
             }
         }
+        }
 
         // ---- Preview + guide ---------------------------------------------------------------
         Column(Modifier.weight(1f)) {
+            // On a phone the categories are a chip strip: tappable, one line, no side panel.
+            if (screen.form == FormFactor.HANDSET) {
+                CategoryChips(
+                    categories = categories,
+                    favouritesSelected = favouritesOnly,
+                    selectedCategory = selectedCategory,
+                    onFavourites = viewModel::selectFavourites,
+                    onAll = { viewModel.selectCategory(null) },
+                    onSelect = { viewModel.selectCategory(it) },
+                    modifier = Modifier.padding(horizontal = metrics.horizontalPadding),
+                )
+            }
             if (rows.isEmpty()) {
                 when {
                     favouritesOnly -> NoFavouritesState()
@@ -417,22 +446,26 @@ fun HomeScreen(
                         SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(Date(windowStart))
                     }
                 }
-                GuidePreview(
-                    row = highlightedRow,
-                    nowMillis = nowMillis,
-                    onWatch = { highlightedRow?.let { goFullscreen(it.primary) } },
-                    onRefresh = onRefresh,
-                    onAddSource = onAddSource,
-                    previewPlayer = if (previewEnabled && !recordingActive) previewController.player else null,
-                    isRecording = highlightedRow?.primary?.id?.let { id ->
-                        activeRecordings.any { it.channelId == id }
-                    } == true,
-                    onRecord = { recordSelected() },
-                    dayLabel = dayLabel,
-                    canGoPrevDay = guideDayOffset > 0,
-                    onPrevDay = { viewModel.nudgeGuideDay(-1) },
-                    onNextDay = { viewModel.nudgeGuideDay(1) },
-                )
+                if (!metrics.hidePreview) {
+                    GuidePreview(
+                        row = highlightedRow,
+                        nowMillis = nowMillis,
+                        onWatch = { highlightedRow?.let { goFullscreen(it.primary) } },
+                        onRefresh = onRefresh,
+                        onAddSource = onAddSource,
+                        previewPlayer = if (previewEnabled && !recordingActive) previewController.player else null,
+                        isRecording = highlightedRow?.primary?.id?.let { id ->
+                            activeRecordings.any { it.channelId == id }
+                        } == true,
+                        onRecord = { recordSelected() },
+                        dayLabel = dayLabel,
+                        canGoPrevDay = guideDayOffset > 0,
+                        onPrevDay = { viewModel.nudgeGuideDay(-1) },
+                        onNextDay = { viewModel.nudgeGuideDay(1) },
+                        height = metrics.previewHeight,
+                        videoMaxWidth = metrics.previewVideoMaxWidth,
+                    )
+                }
                 // Shared by both layouts: focus follows the highlight and collapses the rail; LEFT
                 // from the leftmost element reopens the rail (consumed only when it was hidden).
                 val onFocusChannel: (ChannelsViewModel.Row) -> Unit = {
@@ -448,15 +481,18 @@ fun HomeScreen(
                         false
                     }
                 }
-                if (channelLayout == AppSettings.ChannelLayout.LIST) {
+                if (effectiveLayout == AppSettings.ChannelLayout.LIST) {
                     ChannelList(
                         rows = rows,
                         selectedKey = highlightedRow?.key,
+                        metrics = metrics,
                         onSelectRow = { row -> channelMenu = row },
                         onFocusRow = onFocusChannel,
                         onToggleFavourite = { viewModel.toggleFavourite(it) },
                         onExitLeftFromChannel = onExitLeftChannel,
-                        modifier = Modifier.weight(1f).padding(start = 12.dp, end = 12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = metrics.horizontalPadding),
                     )
                 } else {
                     GuideGrid(
@@ -464,6 +500,7 @@ fun HomeScreen(
                         windowStartMillis = windowStart,
                         dayOffset = guideDayOffset,
                         selectedKey = highlightedRow?.key,
+                        metrics = metrics,
                         // OK on a channel opens its menu: Watch, Record now, Schedule a later show,
                         // Record series. The preview already follows the highlight as you browse.
                         onSelectRow = { row -> channelMenu = row },
@@ -471,7 +508,9 @@ fun HomeScreen(
                         onProgramme = { row, programme -> recordTarget = row to programme },
                         onToggleFavourite = { viewModel.toggleFavourite(it) },
                         onExitLeftFromChannel = onExitLeftChannel,
-                        modifier = Modifier.weight(1f).padding(start = 12.dp, end = 12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = metrics.horizontalPadding),
                     )
                 }
             }
@@ -501,7 +540,9 @@ fun HomeScreen(
         Dialog(onDismissRequest = { recordTarget = null }) {
             Column(
                 Modifier
-                    .width(440.dp)
+                    // Was a fixed 440 dp: wider than a 360 dp phone, so the dialog was clipped.
+                    .widthIn(max = 440.dp)
+                    .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(24.dp),
@@ -1103,3 +1144,49 @@ private fun EmptyState(onAddSource: () -> Unit) {
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
 private fun formatTime(utcMillis: Long): String = timeFormat.format(Date(utcMillis))
+
+/**
+ * The category rail, flattened into a horizontal strip of chips for touch screens.
+ *
+ * Same three kinds of entry the rail has (favourites, all channels, then each category), but
+ * reachable by tapping. The vertical rail is kept for the d-pad: focus can slide it open there,
+ * which a finger cannot.
+ */
+@Composable
+private fun CategoryChips(
+    categories: List<ChannelsViewModel.CategoryGroup>,
+    favouritesSelected: Boolean,
+    selectedCategory: String?,
+    onFavourites: () -> Unit,
+    onAll: () -> Unit,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item(key = "chip-favourites") {
+            FilterChip(
+                selected = favouritesSelected,
+                onClick = onFavourites,
+                label = { Text(stringResource(R.string.guide_favourites), maxLines = 1) },
+            )
+        }
+        item(key = "chip-all") {
+            FilterChip(
+                selected = !favouritesSelected && selectedCategory == null,
+                onClick = onAll,
+                label = { Text(stringResource(R.string.guide_all_channels), maxLines = 1) },
+            )
+        }
+        items(categories, key = { "chip-${it.key}" }) { group ->
+            FilterChip(
+                selected = !favouritesSelected && selectedCategory == group.key,
+                onClick = { onSelect(group.key) },
+                label = { Text(group.label, maxLines = 1) },
+            )
+        }
+    }
+}

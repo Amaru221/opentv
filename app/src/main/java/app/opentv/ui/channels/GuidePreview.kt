@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
@@ -90,19 +90,30 @@ fun GuidePreview(
     canGoPrevDay: Boolean = false,
     onPrevDay: () -> Unit = {},
     onNextDay: () -> Unit = {},
+    /** Pane height for this form factor; see [app.opentv.ui.GuideMetrics]. */
+    height: Dp = 212.dp,
+    /** Hard cap on the 16:9 card, so it can never starve the text column on a narrow screen. */
+    videoMaxWidth: Dp = 300.dp,
     modifier: Modifier = Modifier,
 ) {
+    // The card is sized explicitly rather than by `fillMaxHeight().aspectRatio(16f/9f)`: with the
+    // latter, a 212 dp pane on a 360 dp-wide phone produced a 334 dp card, which left the text
+    // column zero width — the whole pane collapsed on mobile. Sizing both axes from the pane keeps
+    // the ratio and guarantees the column survives.
+    val cardHeight = (height - 24.dp).coerceAtLeast(0.dp)
+    val cardWidth = minOf(cardHeight * 16f / 9f, videoMaxWidth)
+
     Row(
         modifier
             .fillMaxWidth()
-            .height(212.dp)
+            .height(height)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         // ---- Logo / "watch" card ----------------------------------------------------------
         Box(
             Modifier
-                .fillMaxHeight()
-                .aspectRatio(16f / 9f)
+                .height(cardHeight)
+                .width(cardWidth)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color.Black)
                 .clickable(onClick = onWatch),
