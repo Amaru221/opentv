@@ -94,16 +94,23 @@ fun SearchScreen(
             .padding(horizontal = 28.dp, vertical = 20.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.nav_search), style = MaterialTheme.typography.headlineMedium)
+            Text(
+                stringResource(R.string.nav_search),
+                style = MaterialTheme.typography.headlineMedium,
+                maxLines = 1,
+            )
             Spacer(Modifier.width(20.dp))
             Text(
                 query.ifEmpty { stringResource(R.string.search_type_name) },
                 style = MaterialTheme.typography.titleLarge,
                 color = if (query.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.weight(1f))
-            OutlinedButton(onClick = onBack) { Text(stringResource(R.string.common_done)) }
+            Spacer(Modifier.width(12.dp))
+            OutlinedButton(onClick = onBack) { Text(stringResource(R.string.common_done), maxLines = 1) }
         }
 
         Spacer(Modifier.height(20.dp))

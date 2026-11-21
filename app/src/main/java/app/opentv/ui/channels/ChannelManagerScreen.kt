@@ -56,6 +56,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.ui.components.HeaderTitle
+import app.opentv.ui.rememberScreenInfo
 import app.opentv.data.model.shownName
 import app.opentv.ui.ChannelsViewModel
 import coil.compose.AsyncImage
@@ -129,16 +131,20 @@ fun ChannelManagerScreen(
             Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(stringResource(R.string.channels_manager_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.weight(1f))
+            HeaderTitle(stringResource(R.string.channels_manager_title))
             OutlinedButton(onClick = onBack) { Text(stringResource(R.string.common_done)) }
         }
 
         Row(Modifier.weight(1f).fillMaxWidth()) {
             // ---- LEFT pane: Search, an optional source filter, and the category list ----------
+            // 30 / 70 where there is room. On a phone that ratio leaves a 108 dp rail, where even
+            // "Search" and "Categories" truncate, so compact screens get 42% — still mostly content.
+            val screen = rememberScreenInfo()
+            val railFraction = if (screen.isCompact) 0.42f else 0.3f
+            val contentFraction = 1f - railFraction
             LazyColumn(
                 modifier = Modifier
-                    .width(280.dp)
+                    .weight(railFraction)
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.surface),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
@@ -188,7 +194,7 @@ fun ChannelManagerScreen(
             // ---- RIGHT pane: the search UI, or the selected category's channels ---------------
             Column(
                 Modifier
-                    .weight(1f)
+                    .weight(contentFraction)
                     .fillMaxHeight()
                     .padding(horizontal = 24.dp, vertical = 12.dp),
             ) {

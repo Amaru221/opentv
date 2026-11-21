@@ -217,7 +217,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     val selectedCategory = MutableStateFlow<String?>(null)
     val favouritesOnly = MutableStateFlow(false)
     /** Provider filter for the live guide. null = every source. Only surfaced when there's >1 source. */
-    val selectedSource = MutableStateFlow(settings.guideSourceId)
+    val selectedSource: StateFlow<Long?> = settings.guideSource
     private val query = MutableStateFlow("")
     private val nowTick = MutableStateFlow(System.currentTimeMillis())
 
@@ -507,8 +507,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Switch the live guide's provider filter; the category resets since categories differ per source. */
     fun selectSource(sourceId: Long?) {
-        selectedSource.value = sourceId
-        settings.guideSourceId = sourceId
+        settings.setGuideSource(sourceId)
         settings.guideSourceChosen = true
         selectedCategory.value = null
         favouritesOnly.value = false
@@ -592,14 +591,11 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
                     // one rail ("Spain", "UK", "Movies", "Series" all together) was the default and it
                     // reads as a bug: the shelves belong to different services. Pick one instead, and
                     // leave "all sources" as a deliberate choice rather than the starting state.
-                    val first = list.first()
-                    selectedSource.value = first.id
-                    settings.guideSourceId = first.id
+                    settings.setGuideSource(list.first().id)
                     return@collect
                 }
                 if (chosen != null && list.none { it.id == chosen }) {
-                    selectedSource.value = null
-                    settings.guideSourceId = null
+                    settings.setGuideSource(null)
                 }
             }
         }

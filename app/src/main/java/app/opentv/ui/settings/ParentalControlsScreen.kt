@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.ui.components.HeaderTitle
 import app.opentv.core.ServiceLocator
 import app.opentv.ui.ChannelsViewModel
 
@@ -81,8 +82,7 @@ fun ParentalControlsScreen(
             .padding(horizontal = 32.dp, vertical = 24.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_parental_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.weight(1f))
+            HeaderTitle(stringResource(R.string.settings_parental_title))
             OutlinedButton(onClick = onBack) { Text(stringResource(R.string.common_done)) }
         }
 

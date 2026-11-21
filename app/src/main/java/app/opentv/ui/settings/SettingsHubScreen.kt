@@ -51,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.opentv.R
+import app.opentv.ui.components.HeaderTitle
 
 /**
  * The one settings entry point. Every other settings surface is reached from here, so there is
@@ -92,8 +93,7 @@ fun SettingsHubScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Tv, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(12.dp))
-            Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.weight(1f))
+            HeaderTitle(stringResource(R.string.nav_settings))
             HubTextButton(stringResource(R.string.common_done), onBack)
         }
 

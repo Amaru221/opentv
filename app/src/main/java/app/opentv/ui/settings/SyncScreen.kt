@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.opentv.R
+import app.opentv.ui.components.HeaderTitle
 import app.opentv.sync.SyncServer
 import app.opentv.ui.SyncViewModel
 
@@ -61,8 +62,7 @@ fun SyncScreen(
             .padding(horizontal = 32.dp, vertical = 24.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_sync_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.weight(1f))
+            HeaderTitle(stringResource(R.string.settings_sync_title))
             OutlinedButton(onClick = onBack) { Text(stringResource(R.string.common_done)) }
         }
         Spacer(Modifier.height(8.dp))
