@@ -141,6 +141,9 @@ fun HomeScreen(
     val favouritesOnly by viewModel.favouritesOnly.collectAsState()
     val sources by viewModel.sources.collectAsState()
     val selectedSource by viewModel.selectedSource.collectAsState()
+    // Name of the provider the guide is scoped to, or null for "all sources". Used to label
+    // "All channels" so the scope is never ambiguous: "All channels · Movistar".
+    val scopeName = sources.firstOrNull { it.id == selectedSource }?.name
     val windowStart by viewModel.windowStartMillis.collectAsState()
     // How many days ahead the guide is scrolled (0 = live now). Drives the ‹ Today › nav.
     val guideDayOffset by viewModel.guideDayOffset.collectAsState()
@@ -373,7 +376,7 @@ fun HomeScreen(
                 item {
                     val allSelected = !favouritesOnly && selectedCategory == null
                     RailEntry(
-                        label = stringResource(R.string.guide_all_channels),
+                        label = allChannelsLabel(scopeName),
                         selected = allSelected,
                         onClick = { viewModel.selectCategory(null) },
                         modifier = if (allSelected) Modifier.focusRequester(railFocusRequester) else Modifier,
@@ -410,6 +413,7 @@ fun HomeScreen(
                     categories = categories,
                     favouritesSelected = favouritesOnly,
                     selectedCategory = selectedCategory,
+                    scopeName = scopeName,
                     onFavourites = viewModel::selectFavourites,
                     onAll = { viewModel.selectCategory(null) },
                     onSelect = { viewModel.selectCategory(it) },
@@ -1193,6 +1197,19 @@ private fun SourceChips(
 }
 
 /**
+ * "All channels", plus the provider it is scoped to.
+ *
+ * With two providers configured the same row used to say "All channels" whether it meant every
+ * channel on the device or every channel of the one provider you had picked. The qualifier makes
+ * the scope explicit without adding a second label.
+ */
+@Composable
+private fun allChannelsLabel(scopeName: String?): String {
+    val base = stringResource(R.string.guide_all_channels)
+    return if (scopeName.isNullOrBlank()) base else "$base · $scopeName"
+}
+
+/**
  * The category rail, flattened into a horizontal strip of chips for touch screens.
  *
  * Same three kinds of entry the rail has (favourites, all channels, then each category), but
@@ -1204,6 +1221,7 @@ private fun CategoryChips(
     categories: List<ChannelsViewModel.CategoryGroup>,
     favouritesSelected: Boolean,
     selectedCategory: String?,
+    scopeName: String?,
     onFavourites: () -> Unit,
     onAll: () -> Unit,
     onSelect: (String) -> Unit,
@@ -1225,7 +1243,7 @@ private fun CategoryChips(
             FilterChip(
                 selected = !favouritesSelected && selectedCategory == null,
                 onClick = onAll,
-                label = { Text(stringResource(R.string.guide_all_channels), maxLines = 1) },
+                label = { Text(allChannelsLabel(scopeName), maxLines = 1) },
             )
         }
         items(categories, key = { "chip-${it.key}" }) { group ->
