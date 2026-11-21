@@ -107,6 +107,7 @@
     <string name="player_subtitles">Subtítulos</string>
     <string name="player_audio">Audio</string>
     <string name="player_quality">Calidad</string>
+    <string name="player_more">Más opciones</string>
     <string name="player_aspect">Aspecto</string>
     <string name="player_record">Grabar</string>
     <string name="player_pop_out">Ventana flotante</string>
