@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import android.content.Context
 import android.widget.Toast
 import app.opentv.R
+import app.opentv.ui.components.HeaderTitle
 import app.opentv.core.AppSettings
 import app.opentv.core.SleepTimer
 import app.opentv.core.findActivity
@@ -85,8 +86,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
             .padding(horizontal = 32.dp, vertical = 24.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_display_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.weight(1f))
+            HeaderTitle(stringResource(R.string.settings_display_title))
             OutlinedButton(onClick = onBack) { Text(stringResource(R.string.common_done)) }
         }
 

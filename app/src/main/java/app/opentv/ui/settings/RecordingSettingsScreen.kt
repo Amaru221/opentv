@@ -69,6 +69,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import app.opentv.R
+import app.opentv.ui.components.HeaderTitle
 import app.opentv.core.AppSettings
 import app.opentv.core.ServiceLocator
 import app.opentv.core.isIgnoringBatteryOptimizations
@@ -145,8 +146,7 @@ fun RecordingSettingsScreen(onBack: () -> Unit) {
             .padding(horizontal = 32.dp, vertical = 24.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_recording_title), style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.weight(1f))
+            HeaderTitle(stringResource(R.string.settings_recording_title))
             OutlinedButton(onClick = { persist(); onBack() }) { Text(stringResource(R.string.common_done)) }
         }
         Spacer(Modifier.height(8.dp))
