@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.2
+
+- **The channel name has room in landscape and on a TV.** The column was 180 dp wide with 92 dp of
+  it taken by the number, logo, gap and favourite star, which left about eight characters — enough
+  for "Movistar LaL…" and no more. It is now 240 dp on a phone held sideways, 260 on a tablet and
+  300 on a TV, so the name gets 16, 19 and 24 characters. The timeline coarsened from 3.5 to 3 dp
+  per minute in landscape, so it still shows about an hour and three quarters.
+- The channel number and the star are slightly smaller to pay for it. In portrait nothing changes:
+  the list already gives the name the whole width.
+
 ## 0.12.1
 
 - **The guide now fits the screen it is on.** It was built for a television and shipped unchanged
