@@ -425,14 +425,19 @@ class AppSettings private constructor(context: Context) {
     /**
      * Which provider the live guide is scoped to, or null for all of them.
      *
-     * Remembered per device: a household with a paid line and a free list should not have to pick
-     * its provider again every time the app opens. SharedPreferences has no null, so -1 means "all".
+     * A StateFlow rather than a plain preference because two screens need it: the guide, and the
+     * provider picker opened from the sidebar logo. Remembered per device, stored as a Long because
+     * SharedPreferences has no null, with -1 meaning "all".
      */
-    var guideSourceId: Long?
-        get() = prefs.getLong(KEY_GUIDE_SOURCE, -1L).takeIf { it >= 0L }
-        set(value) {
-            prefs.edit().putLong(KEY_GUIDE_SOURCE, value ?: -1L).apply()
-        }
+    private val _guideSource = MutableStateFlow(
+        prefs.getLong(KEY_GUIDE_SOURCE, -1L).takeIf { it >= 0L },
+    )
+    val guideSource: StateFlow<Long?> = _guideSource.asStateFlow()
+
+    fun setGuideSource(sourceId: Long?) {
+        prefs.edit().putLong(KEY_GUIDE_SOURCE, sourceId ?: -1L).apply()
+        _guideSource.value = sourceId
+    }
 
     /**
      * Whether the user has ever picked a provider explicitly.

@@ -25,13 +25,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
@@ -66,6 +69,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import app.opentv.core.ServiceLocator
 import app.opentv.data.model.Channel
 import app.opentv.data.model.Movie
 import app.opentv.data.model.Recording
@@ -114,6 +119,12 @@ fun MainScreen(
     // there is always at least one tab and never a blank shell, even with all three types off.
     val context = LocalContext.current
     val settings = remember { AppSettings.get(context) }
+    val graph = remember { ServiceLocator.get(context) }
+    val sources by graph.sourceRepository.observeAll().collectAsState(initial = emptyList())
+    val selectedSource by settings.guideSource.collectAsState()
+    // The provider list lives behind the sidebar logo: choosing a provider is a once-in-a-session
+    // decision, so it does not deserve a permanent row above the channels.
+    var showSources by remember { mutableStateOf(false) }
     val liveEnabled by settings.liveEnabled.collectAsState()
     val moviesEnabled by settings.moviesEnabled.collectAsState()
     val seriesEnabled by settings.seriesEnabled.collectAsState()
@@ -184,6 +195,10 @@ fun MainScreen(
             onOpenSearch = onOpenSearch,
             onOpenSettings = onOpenSettings,
             onOpenProfiles = onOpenProfiles,
+            onOpenSources = {
+                showSources = true
+                tab = Tab.LIVE
+            },
             activeProfileName = activeProfileName,
         )
 
@@ -216,6 +231,103 @@ fun MainScreen(
         }
       }
       StatusBar()
+    }
+
+    if (showSources) {
+        SourcePickerDialog(
+            sources = sources,
+            selectedId = selectedSource,
+            onSelect = { id ->
+                settings.setGuideSource(id)
+                settings.guideSourceChosen = true
+                showSources = false
+            },
+            onDismiss = { showSources = false },
+        )
+    }
+}
+
+/**
+ * The provider picker, opened from the sidebar logo.
+ *
+ * Choosing a provider used to be a permanent row of chips above the channels, which spent space on
+ * something you touch once. It now lives here: a list of providers with the current one marked, plus
+ * "all sources" for the merged view.
+ */
+@Composable
+private fun SourcePickerDialog(
+    sources: List<app.opentv.data.model.Source>,
+    selectedId: Long?,
+    onSelect: (Long?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .widthIn(max = 420.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(20.dp),
+        ) {
+            Text(
+                stringResource(R.string.settings_providers_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(12.dp))
+            Column(
+                Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                SourceRow(
+                    label = stringResource(R.string.channels_manager_all_sources),
+                    selected = selectedId == null,
+                    onClick = { onSelect(null) },
+                )
+                sources.forEach { source ->
+                    SourceRow(
+                        label = source.name,
+                        selected = selectedId == source.id,
+                        onClick = { onSelect(source.id) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_done)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SourceRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val bg = when {
+        focused -> MaterialTheme.colorScheme.primary
+        selected -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val fg = when {
+        focused -> MaterialTheme.colorScheme.onPrimary
+        selected -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(bg)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.titleMedium, color = fg, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (selected) {
+            Icon(Icons.Filled.Check, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
@@ -276,6 +388,7 @@ private fun NavRail(
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenProfiles: () -> Unit,
+    onOpenSources: () -> Unit,
     activeProfileName: String,
     modifier: Modifier = Modifier,
 ) {
@@ -309,10 +422,14 @@ private fun NavRail(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            // Brand: the logo mark alone when collapsed, the mark + "OpenTV" wordmark when open. The
-            // name stays on purpose — it's what people search for.
+            // Brand: the logo mark alone when collapsed, the mark + "OpenTV" wordmark when open. It
+            // is also the way into the provider list — a tap or "OK" here opens the picker, which
+            // keeps that choice out of the guide's own chrome.
             Row(
-                Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenSources)
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Image(

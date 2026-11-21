@@ -175,7 +175,7 @@
     <string name="settings_subtitles_subtitle">El valor predeterminado para canales nuevos. Mientras ves contenido, el botón Subtítulos del reproductor te permite elegir una pista específica o desactivarlos.</string>
     <string name="settings_resume_title">Reanudar el último canal al iniciar</string>
     <string name="settings_resume_subtitle">Abre la aplicación directamente en el canal que estabas viendo, en lugar de la guía. Presiona Atrás para llegar a la guía.</string>
-    <string name="settings_sleep_timer">Temporizador para dormir</string>
+    <string name="settings_sleep_timer">Temporizador</string>
     <string name="settings_sleep_off_desc">Desactivado — la reproducción continúa hasta que la detengas.</string>
     <string name="settings_sleep_on_desc">Activado — la reproducción se detendrá en unos %1$d min.</string>
     <string name="settings_sleep_off">Desactivado</string>

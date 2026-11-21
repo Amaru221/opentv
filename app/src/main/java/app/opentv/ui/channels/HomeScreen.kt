@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This file is part of OpenTV.
  * Copyright (C) 2026 The OpenTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
@@ -104,7 +104,7 @@ import kotlinx.coroutines.launch
  * Live TV: a category rail on the left, the channel list on the right.
  *
  * The rail is vertical because provider category lists run to dozens of entries and a
- * horizontal chip row hides all but the first few — on a d-pad, anything you cannot see
+ * horizontal chip row hides all but the first few â€” on a d-pad, anything you cannot see
  * you cannot reach. Favourites and All are pinned at the top.
  *
  * The list shows what is on *now* and *next* against every channel. That doubles as a
@@ -128,7 +128,7 @@ fun HomeScreen(
     val channelLayout by settings.channelLayout.collectAsState()
 
     // Everything visual in this screen is sized from the screen it is on. On a 360 dp phone the
-    // grid leaves 37 dp for the timeline, so the list is not a preference there — it is the only
+    // grid leaves 37 dp for the timeline, so the list is not a preference there â€” it is the only
     // layout that works, and the preview pane is dropped because a 16:9 card on that width starved
     // the text column to zero.
     val screen = rememberScreenInfo()
@@ -142,10 +142,10 @@ fun HomeScreen(
     val sources by viewModel.sources.collectAsState()
     val selectedSource by viewModel.selectedSource.collectAsState()
     // Name of the provider the guide is scoped to, or null for "all sources". Used to label
-    // "All channels" so the scope is never ambiguous: "All channels · Movistar".
+    // "All channels" so the scope is never ambiguous: "All channels Â· Movistar".
     val scopeName = sources.firstOrNull { it.id == selectedSource }?.name
     val windowStart by viewModel.windowStartMillis.collectAsState()
-    // How many days ahead the guide is scrolled (0 = live now). Drives the ‹ Today › nav.
+    // How many days ahead the guide is scrolled (0 = live now). Drives the â€¹ Today â€º nav.
     val guideDayOffset by viewModel.guideDayOffset.collectAsState()
     // Tri-state: null = still checking the catalogue, true = channels on disk, false = confirmed
     // empty. Drives the choice between the loading spinner and a recoverable error below.
@@ -163,7 +163,7 @@ fun HomeScreen(
     // Recording from the guide: what's capturing now, and a scope to kick a capture off.
     val activeRecordings by graph.recordingRepository.observeActive().collectAsState(initial = emptyList())
     val recordScope = rememberCoroutineScope()
-    // The programme the user pressed OK on in the grid — drives the per-programme record menu.
+    // The programme the user pressed OK on in the grid â€” drives the per-programme record menu.
     var recordTarget by remember { mutableStateOf<Pair<ChannelsViewModel.Row, Programme>?>(null) }
     // The channel whose OK menu (Watch / Record / Schedule) is open.
     var channelMenu by remember { mutableStateOf<ChannelsViewModel.Row?>(null) }
@@ -189,7 +189,7 @@ fun HomeScreen(
     )
     val railFocusRequester = remember { FocusRequester() }
     // Set when LEFT reopens the rail; the effect waits for the rail to be laid out again before
-    // moving focus onto it — a just-revealed node isn't focusable on the very same frame.
+    // moving focus onto it â€” a just-revealed node isn't focusable on the very same frame.
     var pendingRailFocus by remember { mutableStateOf(false) }
     LaunchedEffect(pendingRailFocus) {
         if (pendingRailFocus) {
@@ -220,7 +220,7 @@ fun HomeScreen(
     // ---- Live preview player -----------------------------------------------------------------
     // One muted player, reused. It only ever decodes while the guide is the foreground screen,
     // and is stopped before any hand-off to full-screen, so the box never runs two decoders at
-    // once — the thing that used to lock up cheap sticks.
+    // once â€” the thing that used to lock up cheap sticks.
     val previewScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     val previewController = remember {
         PlayerController(context, previewScope, graph.httpClient, subtitlesEnabled = false, preview = true)
@@ -233,7 +233,7 @@ fun HomeScreen(
         }
     }
 
-    // Watching a live channel while a recording runs opens a second stream on the same line — which
+    // Watching a live channel while a recording runs opens a second stream on the same line â€” which
     // cuts the recording and can get a single-connection account banned. So every jump to full-screen
     // live is funnelled through [requestLive]: with a recording active it asks first.
     var pendingLiveChannel by remember { mutableStateOf<Channel?>(null) }
@@ -265,7 +265,7 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Hold the screen awake while the guide's live preview is playing — otherwise the box's
+    // Hold the screen awake while the guide's live preview is playing â€” otherwise the box's
     // screensaver fires while you're browsing with a channel running in the preview pane.
     DisposableEffect(previewEnabled, screenResumed) {
         val window = context.findActivity()?.window
@@ -282,7 +282,7 @@ fun HomeScreen(
         previewController.player.volume = if (previewSound) 1f else 0f
     }
 
-    // Tune the preview to the highlighted channel, so it follows the d-pad as you browse — the
+    // Tune the preview to the highlighted channel, so it follows the d-pad as you browse â€” the
     // standard TV-guide behaviour. Debounced, so holding a direction doesn't re-tune every step.
     // While a recording is running the preview is silenced entirely: on a single-connection line a
     // muted preview is still a second stream, which fights the recording and risks a provider ban.
@@ -310,7 +310,7 @@ fun HomeScreen(
 
         // ---- Category rail -----------------------------------------------------------------
         // Width animates to 0 while focus is in the guide (see onFocusRow) so the grid gets the
-        // whole screen; d-pad LEFT from the guide's channel column slides it back (onExitLeft…).
+        // whole screen; d-pad LEFT from the guide's channel column slides it back (onExitLeftâ€¦).
         //
         // Skipped entirely on a phone: there is no d-pad to press LEFT, so a collapsible panel with
         // no touch way back in is a dead end, and 200 dp of a 360 dp screen is not an option
@@ -330,39 +330,13 @@ fun HomeScreen(
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
             Spacer(Modifier.height(12.dp))
-            // The top "Search channels" bar was removed — Search now lives in the global nav rail.
+            // The top "Search channels" bar was removed â€” Search now lives in the global nav rail.
 
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                // Provider switch — only when there's more than one source. Lets the user keep
-                // several playlists and flip between them (cardiodoc's request); "All" folds them.
-                if (sources.size > 1) {
-                    item(key = "provider-header") {
-                        Text(
-                            stringResource(R.string.channels_manager_source_header),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        )
-                    }
-                    item(key = "provider-all") {
-                        RailEntry(
-                            label = stringResource(R.string.channels_manager_all_sources),
-                            selected = selectedSource == null,
-                            onClick = { viewModel.selectSource(null) },
-                        )
-                    }
-                    items(sources, key = { "src-${it.id}" }) { source ->
-                        RailEntry(
-                            label = source.name,
-                            selected = selectedSource == source.id,
-                            onClick = { viewModel.selectSource(source.id) },
-                        )
-                    }
-                    item(key = "provider-divider") { Spacer(Modifier.height(10.dp)) }
-                }
+                // Providers are chosen from the sidebar logo now, so the rail is only categories.
                 // The currently-selected entry carries the rail's FocusRequester, so reopening the
                 // rail (d-pad LEFT in the guide) lands focus straight back on the current category.
                 item {
@@ -399,16 +373,6 @@ fun HomeScreen(
         Column(Modifier.weight(1f)) {
             // On a phone the categories are a chip strip: tappable, one line, no side panel.
             if (screen.form == FormFactor.HANDSET) {
-                // The provider switch used to live in the side rail, which a phone no longer has —
-                // so with two providers the guide silently merged them with no way to separate.
-                if (sources.size > 1) {
-                    SourceChips(
-                        sources = sources,
-                        selectedSourceId = selectedSource,
-                        onSelect = { viewModel.selectSource(it) },
-                        modifier = Modifier.padding(horizontal = metrics.horizontalPadding),
-                    )
-                }
                 CategoryChips(
                     categories = categories,
                     favouritesSelected = favouritesOnly,
@@ -426,11 +390,11 @@ fun HomeScreen(
                     // Work genuinely in progress: a sync is running, the catalogue check hasn't
                     // returned yet, or channels ARE on disk and the guide is still building. A
                     // large provider takes a while, and showing "No channels" during it reads as
-                    // failure — which is how someone concludes an app is broken thirty seconds
+                    // failure â€” which is how someone concludes an app is broken thirty seconds
                     // after installing it.
                     isSyncing || channelsPresent == null || channelsPresent == true -> LoadingState(isSyncing)
                     // Nothing is syncing and the catalogue is confirmed empty. With a provider
-                    // configured, the last load failed or returned nothing — surface a clear error
+                    // configured, the last load failed or returned nothing â€” surface a clear error
                     // with Retry and a way back to setup instead of spinning forever.
                     hasSources -> ChannelsErrorState(onRetry = onRefresh, onEditProvider = onAddSource)
                     else -> EmptyState(onAddSource)
@@ -540,7 +504,7 @@ fun HomeScreen(
         // flows straight through to the capture. Only surfaced when the channel has more than one.
         var chosenVariant by remember(targetRow.primary.id) { mutableStateOf(targetRow.primary) }
         // Which provider records it, when this channel exists on more than one. Recording from a
-        // second provider's account is what lets you keep watching on the first — the only real way
+        // second provider's account is what lets you keep watching on the first â€” the only real way
         // around a single-connection provider (something even TiviMate can't do).
         var sourceOptions by remember(channel.id) { mutableStateOf<List<Channel>>(emptyList()) }
         LaunchedEffect(channel.id) { sourceOptions = graph.catalogRepository.recordSourceOptions(channel) }
@@ -571,14 +535,14 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "${formatTime(programme.startUtcMillis)}–${formatTime(programme.endUtcMillis)}   ${channel.shownName}",
+                    "${formatTime(programme.startUtcMillis)}â€“${formatTime(programme.endUtcMillis)}   ${channel.shownName}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(16.dp))
 
                 if (multiSource) {
-                    // Record from which provider — keeps the other account free to watch on.
+                    // Record from which provider â€” keeps the other account free to watch on.
                     Text(
                         stringResource(R.string.rec_record_from),
                         style = MaterialTheme.typography.labelMedium,
@@ -640,7 +604,7 @@ fun HomeScreen(
                                 onPlayCatchup(
                                     "catchup:${channel.id}:${programme.startUtcMillis}",
                                     url,
-                                    "${channel.shownName} — ${programme.title}",
+                                    "${channel.shownName} â€” ${programme.title}",
                                     source.userAgent,
                                 )
                             }
@@ -655,7 +619,7 @@ fun HomeScreen(
                     }
                 }
 
-                // Reminders — only for something that hasn't started yet.
+                // Reminders â€” only for something that hasn't started yet.
                 if (!isPast) {
                     var reminderSet by remember(channel.id, programme.startUtcMillis) {
                         mutableStateOf<Boolean?>(null)
@@ -711,7 +675,7 @@ fun HomeScreen(
         Dialog(onDismissRequest = { pendingLiveChannel = null }) {
             Column(
                 Modifier
-                    .width(480.dp)
+                    .widthIn(max = 480.dp).fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(20.dp),
@@ -738,18 +702,25 @@ fun HomeScreen(
         }
     }
 
-    // The channel menu — opened by pressing OK on a channel. Watch, record what's on now, schedule
+    // The channel menu â€” opened by pressing OK on a channel. Watch, record what's on now, schedule
     // a later programme, or record the whole series. A plain vertical list, so it's reliable on any
-    // remote — no fiddly timeline navigation needed.
+    // remote â€” no fiddly timeline navigation needed.
     channelMenu?.let { menuRow ->
         val channel = menuRow.primary
+        // The menu opens on Watch: pressing OK on a channel is almost always "put it on", and
+        // landing on "Record what's on now" made the common action the second one.
+        val firstAction = remember(menuRow.key) { FocusRequester() }
+        LaunchedEffect(menuRow.key) {
+            delay(60)
+            runCatching { firstAction.requestFocus() }
+        }
         val nowProg = menuRow.now
         val recordingThis = activeRecordings.firstOrNull { it.channelId == channel.id }
         val upcoming = menuRow.programmes.filter { it.startUtcMillis > nowMillis }.take(8)
         Dialog(onDismissRequest = { channelMenu = null }) {
             Column(
                 Modifier
-                    .width(480.dp)
+                    .widthIn(max = 480.dp).fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(20.dp),
@@ -776,7 +747,11 @@ fun HomeScreen(
                     Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    RecordActionRow(stringResource(R.string.guide_watch)) {
+                    RecordActionRow(
+                        label = stringResource(R.string.guide_watch),
+                        primary = true,
+                        focusRequester = firstAction,
+                    ) {
                         channelMenu = null
                         requestLive(channel)
                     }
@@ -802,13 +777,13 @@ fun HomeScreen(
                         }
                     }
                     if (recordingThis != null) {
-                        RecordActionRow(stringResource(R.string.rec_stop_recording), primary = true) {
+                        RecordActionRow(stringResource(R.string.rec_stop_recording)) {
                             graph.recordingEngine.stop(recordingThis.id)
                             Toast.makeText(context, context.getString(R.string.rec_recording_stopped), Toast.LENGTH_SHORT).show()
                             channelMenu = null
                         }
                     } else {
-                        RecordActionRow(stringResource(R.string.guide_record_now_playing), primary = true) {
+                        RecordActionRow(stringResource(R.string.guide_record_now_playing)) {
                             recordScope.launch { graph.recordingEngine.startChannel(channel, nowProg) }
                             Toast.makeText(context, context.getString(R.string.rec_recording_started_see_tab, channel.shownName), Toast.LENGTH_LONG).show()
                             promptBackgroundIfNeeded()
@@ -835,7 +810,7 @@ fun HomeScreen(
                         )
                         upcoming.forEach { programme ->
                             RecordActionRow("${formatTime(programme.startUtcMillis)}   ${programme.title}") {
-                                // Open the programme dialog so the choice is record, remind or auto-switch —
+                                // Open the programme dialog so the choice is record, remind or auto-switch â€”
                                 // not a surprise one-tap recording.
                                 channelMenu = null
                                 recordTarget = menuRow to programme
@@ -884,7 +859,12 @@ private suspend fun setReminder(
 }
 
 @Composable
-private fun RecordActionRow(label: String, primary: Boolean = false, onClick: () -> Unit) {
+private fun RecordActionRow(
+    label: String,
+    primary: Boolean = false,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val bg = when {
         focused -> MaterialTheme.colorScheme.primary
@@ -904,6 +884,7 @@ private fun RecordActionRow(label: String, primary: Boolean = false, onClick: ()
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
@@ -912,7 +893,7 @@ private fun RecordActionRow(label: String, primary: Boolean = false, onClick: ()
     )
 }
 
-/** A small focusable quality pill (FHD / HD / SD…) for the record dialog's "record HD or SD" choice. */
+/** A small focusable quality pill (FHD / HD / SDâ€¦) for the record dialog's "record HD or SD" choice. */
 @Composable
 private fun QualityChip(label: String, selected: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
@@ -993,7 +974,7 @@ private fun ChannelRow(
         Spacer(Modifier.width(14.dp))
 
         Column(Modifier.weight(1f)) {
-            // Logo, name, guide — and nothing else. Quality is a playback decision;
+            // Logo, name, guide â€” and nothing else. Quality is a playback decision;
             // its switch lives in the player, not as clutter on every row.
             Text(
                 row.primary.shownName,
@@ -1068,11 +1049,11 @@ private fun LoadingState(isSyncing: Boolean) {
             Spacer(Modifier.height(8.dp))
             Text(
                 when {
-                    // Actively assembling — this is work in progress, not a failure.
+                    // Actively assembling â€” this is work in progress, not a failure.
                     status != null -> status
                     isSyncing -> stringResource(R.string.guide_fetching_desc)
                     // Channels are already on the device; the guide is being built from them.
-                    // A big provider takes a moment (longer on this debug build) — not a failure.
+                    // A big provider takes a moment (longer on this debug build) â€” not a failure.
                     else -> stringResource(R.string.guide_building_desc)
                 },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1105,7 +1086,7 @@ private fun NoFavouritesState() {
 
 /**
  * Shown when a provider is configured but there are no channels to display and nothing is
- * syncing — i.e. the last catalogue load failed or came back empty. Replaces the endless
+ * syncing â€” i.e. the last catalogue load failed or came back empty. Replaces the endless
  * "Loading your channels" spinner with something the user can act on.
  */
 @Composable
@@ -1159,42 +1140,6 @@ private fun EmptyState(onAddSource: () -> Unit) {
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
 private fun formatTime(utcMillis: Long): String = timeFormat.format(Date(utcMillis))
-
-/**
- * The provider switch as chips, for touch screens.
- *
- * Only drawn when there is more than one provider: with a single source it would be a row of one
- * chip saying nothing. Selecting one scopes the guide, the categories and favourites to it; the
- * choice is remembered between launches by [app.opentv.core.AppSettings.guideSourceId].
- */
-@Composable
-private fun SourceChips(
-    sources: List<Source>,
-    selectedSourceId: Long?,
-    onSelect: (Long?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item(key = "chip-source-all") {
-            FilterChip(
-                selected = selectedSourceId == null,
-                onClick = { onSelect(null) },
-                label = { Text(stringResource(R.string.channels_manager_all_sources), maxLines = 1) },
-            )
-        }
-        items(sources, key = { "chip-source-${it.id}" }) { source ->
-            FilterChip(
-                selected = selectedSourceId == source.id,
-                onClick = { onSelect(source.id) },
-                label = { Text(source.name, maxLines = 1) },
-            )
-        }
-    }
-}
 
 /**
  * "All channels", plus the provider it is scoped to.
