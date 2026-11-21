@@ -21,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,6 +30,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import app.opentv.core.AppSettings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -77,6 +80,8 @@ fun ProvidersScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(24.dp))
+            LiveStatusSection()
             return@Column
         }
 
@@ -98,7 +103,60 @@ fun ProvidersScreen(
                     onSetLiveFormat = { viewModel.setLiveFormat(source, it) },
                 )
             }
+            item { Spacer(Modifier.height(16.dp)) }
+            item { LiveStatusSection() }
         }
+    }
+}
+
+/**
+ * Optional wiring for "Live now": where the Dispatcharr instance is and the admin API key used to
+ * read its status. Empty fields mean the feature is simply absent — nothing polls, nothing shows.
+ */
+@Composable
+private fun LiveStatusSection() {
+    val context = LocalContext.current
+    val settings = remember { AppSettings.get(context) }
+    val url by settings.dispatcharrUrl.collectAsState()
+    val apiKey by settings.dispatcharrKey.collectAsState()
+    val slots by settings.dispatcharrSlots.collectAsState()
+
+    Column(Modifier.widthIn(max = 760.dp)) {
+        Text(
+            stringResource(R.string.live_status_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(R.string.live_status_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = url,
+            onValueChange = settings::setDispatcharrUrl,
+            label = { Text(stringResource(R.string.live_status_url)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = apiKey,
+            onValueChange = settings::setDispatcharrKey,
+            label = { Text(stringResource(R.string.live_status_key)) },
+            singleLine = true,
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = slots.toString(),
+            onValueChange = { text -> text.toIntOrNull()?.let(settings::setDispatcharrSlots) },
+            label = { Text(stringResource(R.string.live_status_slots)) },
+            singleLine = true,
+            modifier = Modifier.widthIn(max = 200.dp),
+        )
     }
 }
 

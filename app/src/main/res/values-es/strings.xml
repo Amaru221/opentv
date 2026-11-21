@@ -25,6 +25,7 @@
     <string name="guide_search_channels">🔍  Buscar canales</string>
     <string name="guide_favourites">★ Favoritos</string>
     <string name="guide_all_channels">Todos los canales</string>
+    <string name="guide_live_now">En emisión (%1$d)</string>
     <string name="guide_watch_from_start">▶  Ver desde el inicio (catch-up)</string>
     <string name="guide_catchup_link_failed">No se pudo generar el enlace de catch-up</string>
     <string name="guide_cancel_reminder">🔔  Cancelar recordatorio</string>
@@ -207,6 +208,11 @@
     <string name="profiles_use">Usar</string>
     <string name="profiles_rename">Cambiar nombre</string>
     <string name="providers_add">Agregar proveedor</string>
+    <string name="live_status_title">Estado en directo</string>
+    <string name="live_status_body">Opcional. Si tu proveedor va detrás de Dispatcharr, OpenTV puede mostrar qué canales se están viendo ya y cuántas líneas hay ocupadas. Necesita la dirección de Dispatcharr y una API key de administrador; deja ambos vacíos para desactivarlo.</string>
+    <string name="live_status_url">Dirección de Dispatcharr</string>
+    <string name="live_status_key">API key</string>
+    <string name="live_status_slots">Líneas del proveedor</string>
     <string name="providers_empty">Todavía no hay proveedores. Agrega el servicio IPTV que ya pagas para empezar.</string>
     <string name="providers_remove_confirm">¿Quitar?</string>
     <string name="providers_yes_remove">Sí, quitar</string>

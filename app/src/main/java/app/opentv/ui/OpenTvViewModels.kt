@@ -19,6 +19,7 @@ import app.opentv.data.model.Profile
 import app.opentv.data.model.Programme
 import app.opentv.data.model.Series
 import app.opentv.data.model.Source
+import app.opentv.data.remote.DispatcharrApi
 import app.opentv.data.model.SourceKind
 import app.opentv.data.model.StremioStream
 import app.opentv.data.model.StreamKind
@@ -39,6 +40,7 @@ import app.opentv.sync.SyncServer
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import android.util.Log
 import app.opentv.core.StatusBus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +50,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.debounce
@@ -216,6 +219,8 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     /** null = All. Exposed so the sidebar can highlight the active entry. */
     val selectedCategory = MutableStateFlow<String?>(null)
     val favouritesOnly = MutableStateFlow(false)
+    /** "En emisión": only the channels another device is already streaming right now. */
+    val liveNowOnly = MutableStateFlow(false)
     /** Provider filter for the live guide. null = every source. Only surfaced when there's >1 source. */
     val selectedSource: StateFlow<Long?> = settings.guideSource
     private val query = MutableStateFlow("")
@@ -336,6 +341,38 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         val query: String,
         val hiddenIds: Set<String>,
     )
+
+    /**
+     * Channels a Dispatcharr instance is streaming right now. Empty when the feature is off, the
+     * key is rejected or the instance is unreachable — the guide then behaves exactly as before.
+     */
+    private val _liveChannels = MutableStateFlow<List<DispatcharrApi.LiveChannel>>(emptyList())
+    val liveChannels: StateFlow<List<DispatcharrApi.LiveChannel>> = _liveChannels.asStateFlow()
+
+    private val liveStatusVisible = MutableStateFlow(false)
+
+    /** The guide calls this on the way in and out: no polling while it is not on screen. */
+    fun setLiveStatusVisible(visible: Boolean) {
+        liveStatusVisible.value = visible
+    }
+
+    init {
+        viewModelScope.launch {
+            liveStatusVisible.collectLatest { visible ->
+                while (visible) {
+                    val url = settings.dispatcharrUrl.value
+                    val key = settings.dispatcharrKey.value
+                    _liveChannels.value = if (url.isBlank() || key.isBlank()) {
+                        emptyList()
+                    } else {
+                        graph.dispatcharrApi.liveChannels(url, key).orEmpty()
+                    }
+                    delay(10_000)
+                }
+                _liveChannels.value = emptyList()
+            }
+        }
+    }
 
     /**
      * The whole guide window's programmes, grouped by their EPG channel id once — the single
@@ -497,11 +534,20 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectCategory(id: String?) {
         favouritesOnly.value = false
+        liveNowOnly.value = false
         selectedCategory.value = id
     }
 
     fun selectFavourites() {
         favouritesOnly.value = true
+        liveNowOnly.value = false
+        selectedCategory.value = null
+    }
+
+    /** "En emisión": only the channels already playing on another device. */
+    fun selectLiveNow() {
+        liveNowOnly.value = true
+        favouritesOnly.value = false
         selectedCategory.value = null
     }
 
@@ -511,6 +557,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         settings.guideSourceChosen = true
         selectedCategory.value = null
         favouritesOnly.value = false
+        liveNowOnly.value = false
     }
 
     fun search(text: String) { query.value = text }

@@ -420,6 +420,44 @@ class AppSettings private constructor(context: Context) {
             prefs.getString(KEY_STREMIO_ADDONS, null)?.let { addonJson.decodeFromString<List<StremioAddon>>(it) }
         }.getOrNull() ?: emptyList()
 
+    // ---- Live status (Dispatcharr) -------------------------------------------------------------
+
+    /**
+     * Optional: the Dispatcharr instance that fronts the provider.
+     *
+     * When set, the guide can show which channels are already being watched and how many of the
+     * line's slots are taken. Deliberately optional and per-device: empty means the feature is
+     * invisible and the app behaves exactly as before.
+     */
+    private val _dispatcharrUrl = MutableStateFlow(prefs.getString(KEY_DISPATCHARR_URL, "").orEmpty())
+    val dispatcharrUrl: StateFlow<String> = _dispatcharrUrl.asStateFlow()
+
+    fun setDispatcharrUrl(url: String) {
+        val v = url.trim()
+        prefs.edit().putString(KEY_DISPATCHARR_URL, v).apply()
+        _dispatcharrUrl.value = v
+    }
+
+    /** Admin API key used only to read /proxy/ts/status. Stored like every other credential: on device. */
+    private val _dispatcharrKey = MutableStateFlow(prefs.getString(KEY_DISPATCHARR_KEY, "").orEmpty())
+    val dispatcharrKey: StateFlow<String> = _dispatcharrKey.asStateFlow()
+
+    fun setDispatcharrKey(key: String) {
+        val v = key.trim()
+        prefs.edit().putString(KEY_DISPATCHARR_KEY, v).apply()
+        _dispatcharrKey.value = v
+    }
+
+    /** How many simultaneous channels the provider line allows; 2 by default. */
+    private val _dispatcharrSlots = MutableStateFlow(prefs.getInt(KEY_DISPATCHARR_SLOTS, 2).coerceAtLeast(1))
+    val dispatcharrSlots: StateFlow<Int> = _dispatcharrSlots.asStateFlow()
+
+    fun setDispatcharrSlots(slots: Int) {
+        val v = slots.coerceIn(1, 16)
+        prefs.edit().putInt(KEY_DISPATCHARR_SLOTS, v).apply()
+        _dispatcharrSlots.value = v
+    }
+
     // ---- Guide source filter -----------------------------------------------------------------
 
     /**
@@ -517,6 +555,9 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_EPG_SUGGESTION = "epg_suggestion"
         private const val KEY_GUIDE_SOURCE = "guide_source_id"
         private const val KEY_GUIDE_SOURCE_CHOSEN = "guide_source_chosen"
+        private const val KEY_DISPATCHARR_URL = "dispatcharr_url"
+        private const val KEY_DISPATCHARR_KEY = "dispatcharr_key"
+        private const val KEY_DISPATCHARR_SLOTS = "dispatcharr_slots"
         private const val KEY_PAD_START = "rec_pad_start_min"
         private const val KEY_PAD_END = "rec_pad_end_min"
         private const val KEY_REC_AUTOSWITCH = "rec_auto_switch"
