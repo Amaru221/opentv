@@ -288,9 +288,9 @@ fun HomeScreen(
 
     // Hold the screen awake while the guide's live preview is playing â€” otherwise the box's
     // screensaver fires while you're browsing with a channel running in the preview pane.
-    DisposableEffect(previewEnabled, screenResumed) {
+    DisposableEffect(previewEnabled, screenResumed, metrics.hidePreview) {
         val window = context.findActivity()?.window
-        if (previewEnabled && screenResumed) {
+        if (previewEnabled && screenResumed && !metrics.hidePreview) {
             window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -308,9 +308,11 @@ fun HomeScreen(
     // While a recording is running the preview is silenced entirely: on a single-connection line a
     // muted preview is still a second stream, which fights the recording and risks a provider ban.
     val recordingActive = activeRecordings.isNotEmpty()
-    LaunchedEffect(highlightedRow?.key, previewEnabled, screenResumed, recordingActive) {
+    LaunchedEffect(highlightedRow?.key, previewEnabled, screenResumed, recordingActive, metrics.hidePreview) {
         val row = highlightedRow
-        if (!previewEnabled || !screenResumed || recordingActive || row == null) {
+        // hidePreview is true on a portrait phone: the pane is not drawn, so there is nothing to
+        // tune and starting a stream would spend a provider connection for no visible benefit.
+        if (!previewEnabled || !screenResumed || recordingActive || metrics.hidePreview || row == null) {
             previewController.stop()
             return@LaunchedEffect
         }
