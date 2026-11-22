@@ -121,7 +121,8 @@ data class Channel(
      * also the key the EPG matcher joins on. See ChannelNameNormalizer.
      */
     val groupKey: String = "",
-    /** Higher plays by default. 0 = the name said nothing about quality. */
+    /** Higher is better. 0 = the name said nothing about quality. The default variant is
+     *  the lower of two / middle of three or more (see defaultChannelVariant). */
     val qualityRank: Int = 0,
     /** `FHD`, `HD`, `RAW 60fps`… empty when unknown. */
     val qualityLabel: String = "",

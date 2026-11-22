@@ -539,9 +539,10 @@ fun HomeScreen(
     // The record menu for a programme picked in the grid.
     recordTarget?.let { (targetRow, programme) ->
         val channel = targetRow.primary
-        // Which quality actually gets recorded. Defaults to the best variant, but the user can pick
-        // (Sky Q's "record HD or SD"). Each variant channel carries its own stream URL, so the pick
-        // flows straight through to the capture. Only surfaced when the channel has more than one.
+        // Which quality actually gets recorded. Defaults to the channel's default variant, but the
+        // user can pick (Sky Q's "record HD or SD"). Each variant channel carries its own stream
+        // URL, so the pick flows straight through to the capture. Only surfaced when the channel
+        // has more than one.
         var chosenVariant by remember(targetRow.primary.id) { mutableStateOf(targetRow.primary) }
         // Which provider records it, when this channel exists on more than one. Recording from a
         // second provider's account is what lets you keep watching on the first â€” the only real way

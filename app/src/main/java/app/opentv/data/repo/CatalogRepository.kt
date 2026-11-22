@@ -49,6 +49,20 @@ internal fun distinctByQuality(channels: List<app.opentv.data.model.Channel>): L
     return channels.filter { seen.add("${it.qualityRank}|${it.qualityLabel.lowercase()}") }
 }
 
+/**
+ * The quality a logical channel opens with when the viewer has not picked one.
+ *
+ * [variants] must be best-quality first (the order [distinctByQuality] preserves). One variant
+ * has nothing to choose; two open the lower one; three or more open the middle one, using the
+ * lower-middle when the count is even (four qualities → the second-lowest). The top tier stays
+ * one button away in the player's quality picker, which keeps the default lighter for bandwidth
+ * and for providers that struggle with their highest bitrate.
+ */
+internal fun defaultChannelVariant(variants: List<Channel>): Channel {
+    require(variants.isNotEmpty()) { "A channel must have at least one quality variant" }
+    return variants[variants.size / 2]
+}
+
 /** A home/detail row: a genre label and the titles under it. Generic so movies and series share it. */
 @androidx.compose.runtime.Immutable
 data class GenreGroup<T>(val genre: String, val items: List<T>)
@@ -893,15 +907,16 @@ class CatalogRepository(
 
     /**
      * The record menu's "record from which provider" options: one channel per source that carries
-     * this logical channel, each that source's best-quality copy, the current source first. With two
-     * providers this lets a recording run on one account while the user keeps watching on the other —
-     * the only real way around a provider's single-connection limit (which even TiviMate can't dodge).
+     * this logical channel, each that source's default-quality copy, the current source first. With
+     * two providers this lets a recording run on one account while the user keeps watching on the
+     * other — the only real way around a provider's single-connection limit (which even TiviMate
+     * can't dodge).
      */
     suspend fun recordSourceOptions(channel: Channel): List<Channel> = withContext(Dispatchers.IO) {
         if (channel.groupKey.isEmpty()) return@withContext listOf(channel)
         channelDao.variantsInGroup(channel.groupKey)
             .groupBy { it.sourceId }
-            .map { (_, chans) -> chans.maxByOrNull { it.qualityRank } ?: chans.first() }
+            .map { (_, chans) -> defaultChannelVariant(chans) }
             .sortedByDescending { it.sourceId == channel.sourceId }
     }
 

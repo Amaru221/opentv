@@ -36,7 +36,7 @@ class ChannelNameNormalizerTest {
         ).map { ChannelNameNormalizer.normalize(it) }
 
         assertThat(variants.map { it.groupKey }.distinct()).hasSize(1)
-        // And ranks order them correctly for "best plays by default".
+        // And ranks order them correctly for the quality picker (best first).
         assertThat(variants.map { it.qualityRank }).isEqualTo(listOf(100, 200, 300, 400))
     }
 

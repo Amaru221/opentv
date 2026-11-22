@@ -29,6 +29,7 @@ import app.opentv.data.repo.CatalogRepository
 import app.opentv.data.repo.GenreGroup
 import app.opentv.data.repo.MovieVariantGroup
 import app.opentv.data.repo.PersonTitle
+import app.opentv.data.repo.defaultChannelVariant
 import app.opentv.data.repo.distinctByQuality
 import app.opentv.R
 import app.opentv.pairing.ManagerServer
@@ -311,7 +312,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * One row on screen = one *logical* channel.
      *
-     * [primary] is the best-quality variant and what plays on click; [variants] is every
+     * [primary] is the default-quality variant and what plays on click; [variants] is every
      * quality of the same channel, for the in-player switch. `UK| BBC ONE SD/HD/FHD/RAW`
      * is one row, not four — the guide has one BBC One, and so should we.
      */
@@ -511,7 +512,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
             // Only genuinely different qualities are switchable; identical-quality dupes
             // (same stream in two categories) collapse to one, so no false "2 qualities".
             val variants = distinctByQuality(group)
-            val primary = variants.first()
+            val primary = defaultChannelVariant(variants)
 
             // Walk every variant's guide-id candidates (override → provider → matched)
             // and use the first that actually has programmes. An id that never lights up

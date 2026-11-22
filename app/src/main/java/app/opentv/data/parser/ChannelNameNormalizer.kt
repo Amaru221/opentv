@@ -21,8 +21,8 @@ package app.opentv.data.parser
  *  - a **base name** with country prefixes, quality tags and decorations stripped
  *  - a **group key** (lowercased alphanumerics of the base) used to fold quality variants
  *    of one channel into a single row, and to match against guide data
- *  - a **quality rank and label**, so the app can pick the best variant by default and
- *    offer the rest as a switch during playback
+ *  - a **quality rank and label**, so the app can pick a default variant (lower of two,
+ *    middle of three or more) and offer the rest as a switch during playback
  *
  * This one object is the foundation of both headline features: EPG matching and quality
  * grouping. It is pure and heavily tested — when a channel matches the wrong guide entry,
