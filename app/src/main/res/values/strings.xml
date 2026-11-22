@@ -241,6 +241,10 @@
     <string name="live_status_summary_configured">Dispatcharr: configured · %1$d line(s)</string>
     <string name="live_status_summary_not_configured">Dispatcharr: not configured</string>
     <string name="live_status_configure_phone">Configure from phone</string>
+    <string name="live_status_enter_manually">Enter manually</string>
+    <string name="live_status_keep_key">Saved — leave blank to keep</string>
+    <string name="live_status_missing">Enter the address and API key, or clear both to switch it off.</string>
+    <string name="live_status_saved">Live status saved</string>
     <string name="providers_empty">No providers yet. Add the IPTV service you already pay for to get started.</string>
     <string name="providers_remove_confirm">Remove?</string>
     <string name="providers_yes_remove">Yes, remove</string>

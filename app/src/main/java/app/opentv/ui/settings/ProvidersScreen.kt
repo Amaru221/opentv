@@ -5,6 +5,7 @@
  */
 package app.opentv.ui.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,11 +18,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,7 +34,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import app.opentv.core.AppSettings
+import app.opentv.isRunningOnTelevision
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -126,11 +132,53 @@ fun ProvidersScreen(
 @Composable
 private fun LiveStatusSection(onOpenWebManager: () -> Unit) {
     val context = LocalContext.current
+    val isTelevision = remember(context) { isRunningOnTelevision(context) }
     val settings = remember { AppSettings.get(context) }
     val url by settings.dispatcharrUrl.collectAsState()
     val apiKey by settings.dispatcharrKey.collectAsState()
     val slots by settings.dispatcharrSlots.collectAsState()
     val configured = url.isNotBlank() && apiKey.isNotBlank()
+
+    // The QR is for a TV handing the form to a phone. On a phone that same QR is a dead end, so
+    // there we start on the direct form; on a TV it is offered first and the direct form is a
+    // fallback for anyone with a keyboard attached.
+    var manual by remember(isTelevision) { mutableStateOf(!isTelevision) }
+    var urlInput by remember(url) { mutableStateOf(url) }
+    var keyInput by remember { mutableStateOf("") }
+    var slotsInput by remember(slots) { mutableStateOf(slots.toString()) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun save() {
+        val cleanUrl = urlInput.trim()
+        val typedKey = keyInput.trim()
+        val parsedSlots = slotsInput.toIntOrNull()?.coerceAtLeast(1) ?: 1
+
+        // Both empty switches the feature off, matching the old on-TV fields and the manager page.
+        if (cleanUrl.isEmpty() && typedKey.isEmpty()) {
+            settings.setDispatcharrUrl("")
+            settings.setDispatcharrKey("")
+            settings.setDispatcharrSlots(parsedSlots)
+            keyInput = ""
+            error = null
+            Toast.makeText(context, R.string.live_status_saved, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // A blank key field keeps the one already stored, so the address or line count can be
+        // edited without retyping a 40-character admin secret.
+        val effectiveKey = typedKey.ifEmpty { apiKey }
+        if (cleanUrl.isEmpty() || effectiveKey.isBlank()) {
+            error = context.getString(R.string.live_status_missing)
+            return
+        }
+
+        settings.setDispatcharrUrl(cleanUrl)
+        settings.setDispatcharrKey(effectiveKey)
+        settings.setDispatcharrSlots(parsedSlots)
+        keyInput = ""
+        error = null
+        Toast.makeText(context, R.string.live_status_saved, Toast.LENGTH_SHORT).show()
+    }
 
     Column(Modifier.widthIn(max = 760.dp)) {
         Text(
@@ -155,10 +203,62 @@ private fun LiveStatusSection(onOpenWebManager: () -> Unit) {
             else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(10.dp))
-        // An API key is a 40-character admin secret: typing it with a TV remote is the whole
-        // reason this screen hands off to the phone form (and its real keyboard) instead.
-        OutlinedButton(onClick = onOpenWebManager) {
-            Text(stringResource(R.string.live_status_configure_phone))
+
+        if (manual) {
+            OutlinedTextField(
+                value = urlInput,
+                onValueChange = { urlInput = it; error = null },
+                label = { Text(stringResource(R.string.live_status_url)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = keyInput,
+                onValueChange = { keyInput = it; error = null },
+                label = { Text(stringResource(R.string.live_status_key)) },
+                placeholder = if (apiKey.isNotEmpty()) {
+                    { Text(stringResource(R.string.live_status_keep_key)) }
+                } else null,
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = slotsInput,
+                onValueChange = { slotsInput = it.filter(Char::isDigit) },
+                label = { Text(stringResource(R.string.live_status_slots)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.width(180.dp),
+            )
+            error?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = ::save) { Text(stringResource(R.string.common_save)) }
+                if (isTelevision) {
+                    TextButton(onClick = { manual = false }) {
+                        Text(stringResource(R.string.live_status_configure_phone))
+                    }
+                }
+            }
+        } else {
+            // An API key is a 40-character admin secret: typing it with a TV remote is the whole
+            // reason this screen hands off to the phone form (and its real keyboard) instead.
+            OutlinedButton(onClick = onOpenWebManager) {
+                Text(stringResource(R.string.live_status_configure_phone))
+            }
+            TextButton(onClick = { manual = true }) {
+                Text(stringResource(R.string.live_status_enter_manually))
+            }
         }
     }
 }

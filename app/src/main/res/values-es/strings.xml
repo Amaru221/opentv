@@ -216,6 +216,10 @@
     <string name="live_status_summary_configured">Dispatcharr: configurado · %1$d línea(s)</string>
     <string name="live_status_summary_not_configured">Dispatcharr: no configurado</string>
     <string name="live_status_configure_phone">Configurar desde el móvil</string>
+    <string name="live_status_enter_manually">Introducir manualmente</string>
+    <string name="live_status_keep_key">Guardada — déjala vacía para mantenerla</string>
+    <string name="live_status_missing">Introduce la dirección y la API key, o deja ambos vacíos para desactivarlo.</string>
+    <string name="live_status_saved">Estado en directo guardado</string>
     <string name="providers_empty">Todavía no hay proveedores. Agrega el servicio IPTV que ya pagas para empezar.</string>
     <string name="providers_remove_confirm">¿Quitar?</string>
     <string name="providers_yes_remove">Sí, quitar</string>
