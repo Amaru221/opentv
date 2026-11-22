@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.12.7
+
+- **"Live now" — see which channels are already being watched.** Optional, for setups where
+  Dispatcharr fronts the provider: the guide shows how many channels are streaming right now and
+  which ones, so you can tell "two lines are busy, join one of them" from "this channel is broken".
+  Because viewers of the same channel share a connection, entering one of those costs nothing.
+- Configure it in **Settings → Providers → Live status** with your Dispatcharr address, an admin
+  API key and how many lines your provider allows. Leave it empty and nothing changes.
+- What the payload contains is curated: the upstream URL, which carries the provider's credentials,
+  is never parsed, stored or logged.
+- The section only asks for data while the guide is on screen, and disappears silently if the
+  instance is unreachable or the key is rejected.
+
 ## 0.12.6
 
 - **Settings headers stop squeezing their buttons.** Nearly every settings screen put its title and
