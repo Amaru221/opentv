@@ -7,6 +7,7 @@ package app.opentv.core
 
 import android.content.Context
 import app.opentv.data.db.OpenTvDatabase
+import app.opentv.data.remote.DispatcharrApi
 import app.opentv.data.remote.StalkerApi
 import app.opentv.data.remote.StremioClient
 import app.opentv.data.remote.XtreamApi
@@ -81,6 +82,9 @@ object ServiceLocator {
 
         /** Neutral Stremio add-on protocol client. Talks only to user-added manifest URLs. */
         val stremioClient: StremioClient by lazy { StremioClient(httpClient) }
+
+        /** Optional: reads which channels a Dispatcharr instance is streaming right now. */
+        val dispatcharrApi: DispatcharrApi by lazy { DispatcharrApi(httpClient) }
 
         val sourceRepository: SourceRepository by lazy {
             SourceRepository(database.sources(), xtreamApi, stalkerApi)

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * This file is part of OpenTV.
  * Copyright (C) 2026 The OpenTV Contributors
  * Licensed under the GNU General Public License v3.0 or later.
@@ -81,6 +81,7 @@ import app.opentv.data.model.Programme
 import app.opentv.data.model.Reminder
 import app.opentv.data.model.Source
 import app.opentv.data.model.shownName
+import app.opentv.data.parser.ChannelNameNormalizer
 import app.opentv.reminders.ReminderScheduler
 import app.opentv.player.PlaybackQueue
 import app.opentv.player.PlayerController
@@ -135,8 +136,28 @@ fun HomeScreen(
     val metrics = screen.guide
     val effectiveLayout = if (screen.isCompact) AppSettings.ChannelLayout.LIST else channelLayout
 
+    // The guide asks for live status only while it is on screen: nothing polls in the background.
+    DisposableEffect(Unit) {
+        viewModel.setLiveStatusVisible(true)
+        onDispose { viewModel.setLiveStatusVisible(false) }
+    }
+
     val categories by viewModel.visibleCategoryGroups.collectAsState()
-    val rows by viewModel.rows.collectAsState()
+    val allRows by viewModel.rows.collectAsState()
+    val liveNow by viewModel.liveChannels.collectAsState()
+    val liveNowOnly by viewModel.liveNowOnly.collectAsState()
+    val liveSlots by settings.dispatcharrSlots.collectAsState()
+    // "Live now" is a client-side filter: the rows come from the catalogue, and the only extra data
+    // is the set of channels another device is streaming. Matching is by the channel id in the
+    // proxy URL first (exact, stable) and by normalised name second, for Xtream URLs that carry a
+    // numeric id instead of the UUID.
+    val liveIds = remember(liveNow) { liveNow.mapTo(HashSet()) { it.channelId } }
+    val liveNames = remember(liveNow) {
+        liveNow.mapTo(HashSet()) { ChannelNameNormalizer.normalize(it.name).baseName }
+    }
+    val rows = remember(allRows, liveNowOnly, liveIds, liveNames) {
+        if (liveNowOnly) allRows.filter { isLiveRow(it, liveIds, liveNames) } else allRows
+    }
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val favouritesOnly by viewModel.favouritesOnly.collectAsState()
     val sources by viewModel.sources.collectAsState()
@@ -337,6 +358,22 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 // Providers are chosen from the sidebar logo now, so the rail is only categories.
+                // "Live now" leads when there is something on air — it is the one entry that says
+                // something about the line rather than about the catalogue.
+                if (liveNow.isNotEmpty()) {
+                    item(key = "rail-live-now") {
+                        // Observed here, inside the item, so this composable subscribes itself —
+                        // reading it up in the parent and passing an Int is what left the entry
+                        // stuck on the first composition.
+                        val liveCount by viewModel.liveCount.collectAsState()
+                        RailEntry(
+                            label = stringResource(R.string.guide_live_now, liveCount),
+                            selected = liveNowOnly,
+                            onClick = viewModel::selectLiveNow,
+                            modifier = if (liveNowOnly) Modifier.focusRequester(railFocusRequester) else Modifier,
+                        )
+                    }
+                }
                 // The currently-selected entry carries the rail's FocusRequester, so reopening the
                 // rail (d-pad LEFT in the guide) lands focus straight back on the current category.
                 item {
@@ -348,7 +385,7 @@ fun HomeScreen(
                     )
                 }
                 item {
-                    val allSelected = !favouritesOnly && selectedCategory == null
+                    val allSelected = !favouritesOnly && !liveNowOnly && selectedCategory == null
                     RailEntry(
                         label = allChannelsLabel(scopeName),
                         selected = allSelected,
@@ -357,7 +394,7 @@ fun HomeScreen(
                     )
                 }
                 items(categories, key = { it.key }) { group ->
-                    val groupSelected = !favouritesOnly && selectedCategory == group.key
+                    val groupSelected = !favouritesOnly && !liveNowOnly && selectedCategory == group.key
                     RailEntry(
                         label = group.label,
                         selected = groupSelected,
@@ -378,6 +415,9 @@ fun HomeScreen(
                     favouritesSelected = favouritesOnly,
                     selectedCategory = selectedCategory,
                     scopeName = scopeName,
+                    liveCount = viewModel.liveCount,
+                    liveSelected = liveNowOnly,
+                    onLive = viewModel::selectLiveNow,
                     onFavourites = viewModel::selectFavourites,
                     onAll = { viewModel.selectCategory(null) },
                     onSelect = { viewModel.selectCategory(it) },
@@ -1141,6 +1181,25 @@ private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
 private fun formatTime(utcMillis: Long): String = timeFormat.format(Date(utcMillis))
 
+/** `/proxy/ts/stream/{uuid}` — the channel id Dispatcharr uses in its status payload. */
+private val PROXY_STREAM_ID = Regex("/proxy/ts/stream/([^/?#]+)")
+
+/**
+ * Whether this row is one of the channels another device is streaming right now.
+ *
+ * Matched on the UUID in the stream URL, which is exact and survives a rename, and falling back to
+ * the normalised channel name for Xtream sources whose URLs carry a numeric id instead.
+ */
+private fun isLiveRow(
+    row: ChannelsViewModel.Row,
+    ids: Set<String>,
+    names: Set<String>,
+): Boolean {
+    val uuid = PROXY_STREAM_ID.find(row.primary.streamUrl)?.groupValues?.get(1)
+    if (uuid != null && uuid in ids) return true
+    return ChannelNameNormalizer.normalize(row.primary.shownName).baseName in names
+}
+
 /**
  * "All channels", plus the provider it is scoped to.
  *
@@ -1167,16 +1226,35 @@ private fun CategoryChips(
     favouritesSelected: Boolean,
     selectedCategory: String?,
     scopeName: String?,
+    liveCount: kotlinx.coroutines.flow.StateFlow<Int>,
+    liveSelected: Boolean,
+    onLive: () -> Unit,
     onFavourites: () -> Unit,
     onAll: () -> Unit,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Collected *here*, not passed in as an Int: a composable that reads the state itself is the
+    // one that recomposes when it changes. Passing the value from the parent left this row stuck on
+    // its first composition, when the count was still 0.
+    val liveCount by liveCount.collectAsState()
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // The item is always present and the chip is conditional *inside* it. Wrapping the `item`
+        // itself in an `if` left the row composing only once — the chip never appeared even though
+        // the count was 2 by then. A fixed item slot plus a conditional child does render.
+        item(key = "chip-live-now") {
+            if (liveCount > 0) {
+                FilterChip(
+                    selected = liveSelected,
+                    onClick = onLive,
+                    label = { Text(stringResource(R.string.guide_live_now, liveCount), maxLines = 1) },
+                )
+            }
+        }
         item(key = "chip-favourites") {
             FilterChip(
                 selected = favouritesSelected,
@@ -1186,7 +1264,7 @@ private fun CategoryChips(
         }
         item(key = "chip-all") {
             FilterChip(
-                selected = !favouritesSelected && selectedCategory == null,
+                selected = !favouritesSelected && !liveSelected && selectedCategory == null,
                 onClick = onAll,
                 label = { Text(allChannelsLabel(scopeName), maxLines = 1) },
             )
