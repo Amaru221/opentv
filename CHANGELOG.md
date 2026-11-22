@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.12.8
+
+- **Set up Dispatcharr live status from your phone.** Typing a 40-character admin API key with a
+  TV remote was the worst part of the feature. Settings → Providers now shows whether Dispatcharr
+  is configured and how many lines it has, plus a **Configure from phone** button that opens the
+  existing QR. The manager page gains a Live status form; the key is stored on the TV and is never
+  sent back to the browser.
+- **Enable or disable each provider.** A checkbox on every provider card switches it off without
+  deleting anything. Disabled providers load no channels or categories and open no connections:
+  the guide, "all channels", search, favourites and the guide feeds all filter them out, the logo
+  picker only offers the enabled ones, and the guide falls back to "all sources" if the selected
+  provider is switched off. Turning one back on restores its channels immediately, without a
+  restart or re-sync.
+- **Disabling a provider also cancels its recordings.** Future bookings are disarmed and marked
+  FAILED with "Provider disabled"; an in-progress capture is stopped. They are not re-booked
+  automatically when the provider comes back, so re-schedule anything you still want.
+- Editing a disabled provider no longer quietly wakes it up with a catalogue download.
+
 ## 0.12.7
 
 - **"Live now" — see which channels are already being watched.** Optional, for setups where
