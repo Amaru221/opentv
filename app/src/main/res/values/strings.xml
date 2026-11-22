@@ -132,6 +132,7 @@
     <string name="player_aspect_fill">Fill</string>
     <string name="player_aspect_stretch">Stretch</string>
     <string name="player_aspect_ratio_title">Aspect ratio</string>
+    <string name="player_live">LIVE</string>
     <string name="player_none_available">None available</string>
     <string name="player_subtitles_off">Off</string>
 

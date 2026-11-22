@@ -600,11 +600,11 @@ fun PlayerScreen(
 
                 // ---- Time bar -------------------------------------------------------------
                 // Above the buttons, not instead of them: the transport sits where a thumb
-                // reaches, and the scrubbable timeline sits right over it.
-                if (controller.isSeekable) {
-                    PlayerSeekBar(controller.player)
-                    Spacer(Modifier.height(10.dp))
-                }
+                // reaches, and the scrubbable timeline sits right over it. Always drawn, even
+                // for a live channel with no seekable window — the bar then shows the live
+                // position with the scrub thumb disabled instead of disappearing.
+                PlayerSeekBar(controller.player, seekable = controller.isSeekable)
+                Spacer(Modifier.height(10.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Four primary actions at most, so nothing has to shrink. The previous single
@@ -1043,7 +1043,7 @@ private fun TransportButton(
  */
 @OptIn(UnstableApi::class)
 @Composable
-private fun PlayerSeekBar(player: ExoPlayer) {
+private fun PlayerSeekBar(player: ExoPlayer, seekable: Boolean) {
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var scrubbing by remember { mutableStateOf(false) }
@@ -1075,6 +1075,9 @@ private fun PlayerSeekBar(player: ExoPlayer) {
                 }
             },
             onValueChangeFinished = { scrubbing = false },
+            // A live stream without a seekable window still gets the bar, but no thumb to drag:
+            // its duration is unknown, so any scrubbing would be a lie.
+            enabled = seekable && duration > 0L,
             colors = SliderDefaults.colors(
                 thumbColor = Color.White,
                 activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -1083,7 +1086,7 @@ private fun PlayerSeekBar(player: ExoPlayer) {
             modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
         )
         Text(
-            formatClock(duration),
+            if (seekable && duration > 0L) formatClock(duration) else stringResource(R.string.player_live),
             style = MaterialTheme.typography.labelLarge,
             color = Color.White.copy(alpha = 0.85f),
         )
