@@ -472,6 +472,26 @@ class AppSettings private constructor(context: Context) {
     )
     val guideSource: StateFlow<Long?> = _guideSource.asStateFlow()
 
+    /**
+     * The guide's open category rail entry. Shared by every ViewModel so the separate search
+     * screen can scope its results to what the guide is showing. Session-only: a cold start
+     * returns to "All channels" rather than reopening a category from days ago.
+     */
+    private val _guideCategory = MutableStateFlow<String?>(null)
+    val guideCategory: StateFlow<String?> = _guideCategory.asStateFlow()
+
+    fun setGuideCategory(key: String?) {
+        _guideCategory.value = key
+    }
+
+    /** The guide/sidebar search text, shared so a category change can clear it everywhere. */
+    private val _guideSearch = MutableStateFlow("")
+    val guideSearch: StateFlow<String> = _guideSearch.asStateFlow()
+
+    fun setGuideSearch(text: String) {
+        _guideSearch.value = text
+    }
+
     fun setGuideSource(sourceId: Long?) {
         prefs.edit().putLong(KEY_GUIDE_SOURCE, sourceId ?: -1L).apply()
         _guideSource.value = sourceId

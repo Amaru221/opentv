@@ -245,8 +245,11 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = ServiceLocator.get(app)
     private val settings = graph.settings
 
-    /** null = All. Exposed so the sidebar can highlight the active entry. */
-    val selectedCategory = MutableStateFlow<String?>(null)
+    /**
+     * null = All. Lives in [AppSettings] so the separate search screen's ViewModel sees the same
+     * open category; the sidebar still highlights it from here.
+     */
+    val selectedCategory: StateFlow<String?> = settings.guideCategory
     val favouritesOnly = MutableStateFlow(false)
     /** "En emisión": only the channels another device is already streaming right now. */
     val liveNowOnly = MutableStateFlow(false)
@@ -572,17 +575,17 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         val changed = selectedCategory.value != id
         favouritesOnly.value = false
         liveNowOnly.value = false
-        selectedCategory.value = id
+        settings.setGuideCategory(id)
         // The search is scoped to the open category, so changing category starts a fresh filter.
-        if (changed) searchInput.value = ""
+        if (changed) clearSearch()
     }
 
     fun selectFavourites() {
         val changed = !favouritesOnly.value || selectedCategory.value != null
         favouritesOnly.value = true
         liveNowOnly.value = false
-        selectedCategory.value = null
-        if (changed) searchInput.value = ""
+        settings.setGuideCategory(null)
+        if (changed) clearSearch()
     }
 
     /** "En emisión": only the channels already playing on another device. */
@@ -590,8 +593,8 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         val changed = !liveNowOnly.value || selectedCategory.value != null
         liveNowOnly.value = true
         favouritesOnly.value = false
-        selectedCategory.value = null
-        if (changed) searchInput.value = ""
+        settings.setGuideCategory(null)
+        if (changed) clearSearch()
     }
 
     /** Switch the live guide's provider filter; the category resets since categories differ per source. */
@@ -599,10 +602,10 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
         val changed = selectedSource.value != sourceId
         settings.setGuideSource(sourceId)
         settings.guideSourceChosen = true
-        selectedCategory.value = null
+        settings.setGuideCategory(null)
         favouritesOnly.value = false
         liveNowOnly.value = false
-        if (changed) searchInput.value = ""
+        if (changed) clearSearch()
     }
 
     fun search(text: String) { query.value = text }
@@ -611,12 +614,16 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     // Kept separate from the guide's `rows` on purpose: `rows` loads the entire 12-hour EPG
     // window, which is far too heavy to run on every keystroke (that was the ~30s search lag).
     // This path is channel-only — no programme window — debounced, and capped by the DAO's LIMIT.
-    private val searchInput = MutableStateFlow("")
+    /**
+     * The search field's text lives in [AppSettings], not this ViewModel: the Home screen and the
+     * Search screen are different ViewModels/back-stack entries, and a category change on one has
+     * to clear the filter on the other.
+     */
+    val searchQuery: StateFlow<String> = settings.guideSearch
 
-    /** The search field's text, owned here so changing category can clear it. */
-    val searchQuery: StateFlow<String> = searchInput.asStateFlow()
+    fun setSearchQuery(text: String) { settings.setGuideSearch(text) }
 
-    fun setSearchQuery(text: String) { searchInput.value = text }
+    private fun clearSearch() { settings.setGuideSearch("") }
 
     private data class SearchKey(
         val query: String,
@@ -626,7 +633,7 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
 
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val searchResults: StateFlow<List<Row>> =
-        combine(searchInput.map { it.trim() }, selectedCategory, categoryGroups) { q, category, groups ->
+        combine(settings.guideSearch.map { it.trim() }, selectedCategory, categoryGroups) { q, category, groups ->
             SearchKey(
                 query = q,
                 categoryKey = category,

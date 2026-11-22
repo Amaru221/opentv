@@ -66,12 +66,13 @@ internal fun OnScreenKeyboard(
     onSpace: () -> Unit,
     onBackspace: () -> Unit,
     onClear: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var shifted by remember { mutableStateOf(false) }
     val firstKey = remember { FocusRequester() }
     val context = LocalContext.current
 
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
         val gap = 6.dp
         // "1234567890" and "QWERTYUIOP" are the widest rows, so they set the key width.
         val keyWidth = ((maxWidth - gap * 9) / 10).coerceIn(24.dp, 54.dp)
