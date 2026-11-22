@@ -6,6 +6,7 @@
 package app.opentv.recording
 
 import android.content.Context
+import app.opentv.R
 import app.opentv.core.AppSettings
 import app.opentv.data.model.Channel
 import app.opentv.data.model.Programme
@@ -40,6 +41,8 @@ class RecordingEngine(
         profileId: Long = settings.activeProfileId.value,
     ): Long {
         val source = sources.byId(channel.sourceId)
+        // Never start a capture against a provider the user has switched off.
+        if (source?.enabled == false) return -1L
         val ua = source?.userAgent ?: Source.DEFAULT_USER_AGENT
         val now = System.currentTimeMillis()
         val title = programme?.title?.takeIf { it.isNotBlank() } ?: channel.displayName
@@ -98,6 +101,8 @@ class RecordingEngine(
         ruleId: Long? = null,
         profileId: Long = settings.activeProfileId.value,
     ): Long {
+        // A disabled provider is never booked, even if a stale screen still offers the channel.
+        if (sources.byId(channel.sourceId)?.enabled == false) return -1L
         // Padding: start early and keep going past the listed end, so a late start or an overrun
         // (sport, news) isn't clipped — the Sky-Q behaviour.
         val padStart = settings.recordPadStartMinutes.value.coerceAtLeast(0) * 60_000L
@@ -195,6 +200,29 @@ class RecordingEngine(
     }
 
     /**
+     * Stops every capture and disarms every future booking that would open a connection to
+     * [sourceId]. Called when the user disables that provider, so "off" really means no traffic.
+     *
+     * Scheduled rows are marked FAILED rather than deleted: the user sees what was cancelled and
+     * why, and the row is still there if they re-enable the provider and want to book it again.
+     * Nothing is re-armed automatically.
+     */
+    suspend fun cancelForSource(sourceId: Long) {
+        val reason = appContext.getString(R.string.provider_disabled_recording_error)
+        repo.scheduled()
+            .filter { it.sourceId == sourceId }
+            .forEach { rec ->
+                RecordingScheduler.cancel(appContext, rec.id)
+                RecordingScheduler.cancelWarning(appContext, rec.id)
+                repo.setStatus(rec.id, RecordingStatus.FAILED, reason)
+            }
+        // An in-progress capture is stopped through the service so its file is closed cleanly.
+        repo.active()
+            .filter { it.sourceId == sourceId }
+            .forEach { RecordingService.stop(appContext, it.id) }
+    }
+
+    /**
      * Create (or reuse) a series-link rule for this programme's title on this channel, and book
      * every matching future airing already in the guide. Airings beyond the loaded window get
      * picked up by [scheduleMatching] on the next guide refresh.
@@ -287,6 +315,9 @@ class RecordingEngine(
         val now = System.currentTimeMillis()
         for (rule in rules) {
             val channel = channelDao.byId(rule.channelId) ?: continue
+            // A series link on a provider the user switched off must not book new airings: those
+            // would open a connection the moment they came due.
+            if (sources.byId(channel.sourceId)?.enabled != true) continue
             val upcoming = channel.epgCandidates
                 .flatMap { epgId -> epgRepository.upcoming(epgId, now, 200) }
                 .distinctBy { it.startUtcMillis to it.title }

@@ -124,6 +124,16 @@ class SourcesViewModel(app: Application) : AndroidViewModel(app) {
                 onDone(false)
                 return@launch
             }
+            // Editing a provider that is switched off must not quietly wake it up. Saving the
+            // edit is fine; downloading from it is exactly what "disabled" rules out.
+            if (!saved.enabled) {
+                _ui.value = _ui.value.copy(
+                    syncing = false,
+                    syncMessage = "Saved. This provider is disabled, so nothing was downloaded.",
+                )
+                onDone(true)
+                return@launch
+            }
 
             _ui.value = _ui.value.copy(syncMessage = "Loading channels…")
             val now = System.currentTimeMillis()
@@ -180,6 +190,24 @@ class SourcesViewModel(app: Application) : AndroidViewModel(app) {
     fun setLiveFormat(source: Source, format: LiveStreamFormat) {
         if (source.kind != SourceKind.XTREAM || source.liveFormat == format) return
         viewModelScope.launch { graph.catalogRepository.setLiveFormat(source.id, format) }
+    }
+
+    /**
+     * Switches a provider on or off. The catalogue stays on disk — [CatalogRepository]'s reads and
+     * every sync path filter on `Source.enabled`, so turning a provider back on brings its channels
+     * and guide back without a re-sync or a restart.
+     *
+     * Turning one off also cancels its bookings: a scheduled capture would otherwise open a
+     * connection to a provider the user just told the app not to use. The cancelled rows stay in
+     * the library marked FAILED ("Provider disabled") rather than vanishing, and are not re-booked
+     * automatically when the provider comes back — a deliberate re-schedule is needed.
+     */
+    fun setSourceEnabled(source: Source, enabled: Boolean) {
+        if (source.enabled == enabled) return
+        viewModelScope.launch {
+            graph.sourceRepository.save(source.copy(enabled = enabled))
+            if (!enabled) graph.recordingEngine.cancelForSource(source.id)
+        }
     }
 
     fun refreshAll() {
@@ -625,9 +653,13 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     /** The [CategoryGroup.key] whose channels fill the manager's right pane; null = none picked. */
     val managerSelectedCategory = MutableStateFlow<String?>(null)
 
-    /** Providers, so the manager can offer a source filter (shown only when there's more than one). */
+    /**
+     * Enabled providers, so the guide's scope label, the manager filter and the record menu only
+     * ever name providers that can actually load. Settings deliberately uses the unfiltered list.
+     */
     val sources: StateFlow<List<Source>> =
         graph.sourceRepository.observeAll()
+            .map { list -> list.filter { it.enabled } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
@@ -857,9 +889,10 @@ class VodViewModel(app: Application) : AndroidViewModel(app) {
     /** Provider filter for Movies/Shows. null = every source. Surfaced only when there's >1 source. */
     val selectedVodSource = MutableStateFlow<Long?>(null)
 
-    /** Providers, so Movies/Shows can offer a source filter (shown only when there's more than one). */
+    /** Enabled providers, so Movies/Shows can offer a source filter (shown only when there's more than one). */
     val sources: StateFlow<List<Source>> =
         graph.sourceRepository.observeAll()
+            .map { list -> list.filter { it.enabled } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // Category chips scoped to the chosen provider: pick a provider and you see only its categories,

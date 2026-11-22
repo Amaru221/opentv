@@ -216,6 +216,8 @@
     <string name="providers_empty">Todavía no hay proveedores. Agrega el servicio IPTV que ya pagas para empezar.</string>
     <string name="providers_remove_confirm">¿Quitar?</string>
     <string name="providers_yes_remove">Sí, quitar</string>
+    <string name="providers_disabled_help">Los proveedores deshabilitados no cargan canales ni abren conexiones.</string>
+    <string name="provider_disabled_recording_error">Proveedor deshabilitado</string>
     <string name="provider_stream_format">Formato de transmisión</string>
     <string name="provider_stream_format_hls">HLS (.m3u8)</string>
     <string name="provider_stream_format_ts">MPEG-TS (.ts)</string>

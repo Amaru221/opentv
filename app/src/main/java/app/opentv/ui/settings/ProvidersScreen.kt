@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -101,6 +102,15 @@ fun ProvidersScreen(
                         pendingRemove = null
                     },
                     onSetLiveFormat = { viewModel.setLiveFormat(source, it) },
+                    onSetEnabled = { viewModel.setSourceEnabled(source, it) },
+                )
+            }
+            item { Spacer(Modifier.height(16.dp)) }
+            item {
+                Text(
+                    stringResource(R.string.providers_disabled_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             item { Spacer(Modifier.height(16.dp)) }
@@ -169,6 +179,7 @@ private fun ProviderRow(
     onCancelRemove: () -> Unit,
     onConfirmRemove: () -> Unit,
     onSetLiveFormat: (LiveStreamFormat) -> Unit,
+    onSetEnabled: (Boolean) -> Unit,
 ) {
     Card {
         Column(
@@ -177,8 +188,19 @@ private fun ProviderRow(
                 .padding(horizontal = 18.dp, vertical = 14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = source.enabled,
+                    onCheckedChange = onSetEnabled,
+                    modifier = Modifier.padding(end = 10.dp),
+                )
                 Column(Modifier.weight(1f)) {
-                    Text(source.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        source.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (source.enabled) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Text(
                         "${source.kind.name} · ${hostOf(source.url)}",
                         style = MaterialTheme.typography.bodyMedium,

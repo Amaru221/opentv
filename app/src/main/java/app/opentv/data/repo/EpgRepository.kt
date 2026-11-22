@@ -142,11 +142,17 @@ class EpgRepository(
             ensureFeeds()
             maybeAutoEnableRegionalFeed()
 
+            // A disabled provider must not be contacted — not even for its guide. Its feed row
+            // stays in place (so re-enabling restores the guide without a re-add) but is skipped
+            // here and hidden from the feed list by EpgFeedDao.observeAll.
+            val enabledProviderIds = sourceDao.enabled().mapTo(HashSet()) { it.id }
+
             var succeeded = 0
             var failed = 0
             var written = 0
 
             for (feed in feedDao.enabled()) {
+                if (feed.providerSourceId != null && feed.providerSourceId !in enabledProviderIds) continue
                 if (!force && nowUtcMillis - feed.lastSyncMillis < REFRESH_INTERVAL_MILLIS) {
                     succeeded++
                     continue
