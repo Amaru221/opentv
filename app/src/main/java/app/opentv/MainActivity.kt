@@ -444,6 +444,7 @@ private fun OpenTvApp(isTelevision: Boolean) {
                     viewModel = sourcesViewModel,
                     onAddSource = { navController.navigate(Routes.ADD_SOURCE) },
                     onEditSource = { src -> navController.navigate(Routes.editSource(src.id)) },
+                    onOpenWebManager = { navController.navigate(Routes.WEB_MANAGER) },
                     onBack = { navController.popBackStack() },
                 )
             }

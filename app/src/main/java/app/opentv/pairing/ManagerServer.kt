@@ -232,6 +232,11 @@ class ManagerServer(
 
             method == "POST" && path == "/recording/test" -> handleRecordingTest(output, body)
 
+            method == "GET" && path == "/live-status" ->
+                writeJson(output, LiveStatusDto.serializer(), liveStatusJson())
+
+            method == "POST" && path == "/live-status" -> handleLiveStatus(output, body)
+
             method == "POST" && path == "/source" -> handleAddSource(output, body)
 
             method == "POST" && path == "/source/test" -> handleTestSource(output, body)
@@ -370,6 +375,60 @@ class ManagerServer(
             TestDto(ok = false, error = e?.message ?: e?.javaClass?.simpleName ?: "Connection failed")
         }
         output.write(PairingHttp.httpResponse("200 OK", "application/json", json.encodeToString(TestDto.serializer(), dto)))
+    }
+
+    // ---- Live status (Dispatcharr) --------------------------------------------------------------
+
+    /**
+     * `GET /live-status` → the address and line count, plus whether a key is stored. The key
+     * itself never leaves the TV: the page only needs to know one exists so it can show
+     * "saved — leave blank to keep".
+     */
+    private fun liveStatusJson(): LiveStatusDto = LiveStatusDto(
+        url = settings.dispatcharrUrl.value,
+        slots = settings.dispatcharrSlots.value,
+        hasKey = settings.dispatcharrKey.value.isNotEmpty(),
+    )
+
+    /**
+     * `POST /live-status {url,key,slots}` → save the Dispatcharr connection. A blank key keeps the
+     * one already stored, so the address or line count can be edited without retyping a 40-char
+     * admin secret. Leaving BOTH the address and key blank switches the feature off, matching the
+     * old on-TV fields.
+     */
+    private fun handleLiveStatus(output: OutputStream, body: String) {
+        val req = runCatching { json.decodeFromString(LiveStatusReq.serializer(), body) }.getOrNull()
+        if (req == null) {
+            output.write(PairingHttp.httpResponse("400 Bad Request", "text/plain", "Bad request."))
+            return
+        }
+        val url = req.url.trim()
+        val typedKey = req.key.trim()
+
+        if (url.isEmpty() && typedKey.isEmpty()) {
+            settings.setDispatcharrUrl("")
+            settings.setDispatcharrKey("")
+            settings.setDispatcharrSlots(req.slots)
+            writeOk(output)
+            return
+        }
+
+        val key = typedKey.ifEmpty { settings.dispatcharrKey.value }
+        if (url.isEmpty() || key.isEmpty()) {
+            writeJson(
+                output,
+                TestDto.serializer(),
+                TestDto(
+                    ok = false,
+                    error = "Enter both the Dispatcharr address and the API key, or leave both empty to switch it off.",
+                ),
+            )
+            return
+        }
+        settings.setDispatcharrUrl(url)
+        settings.setDispatcharrKey(key)
+        settings.setDispatcharrSlots(req.slots)
+        writeOk(output)
     }
 
     // ---- Add a provider ------------------------------------------------------------------------
@@ -540,6 +599,14 @@ class ManagerServer(
 )
 
 @Serializable private data class TestDto(val ok: Boolean, val error: String?)
+
+@Serializable private data class LiveStatusDto(val url: String, val slots: Int, val hasKey: Boolean)
+
+@Serializable private data class LiveStatusReq(
+    val url: String = "",
+    val key: String = "",
+    val slots: Int = 2,
+)
 
 @Serializable private data class SourceReq(
     val kind: String = "xtream",
