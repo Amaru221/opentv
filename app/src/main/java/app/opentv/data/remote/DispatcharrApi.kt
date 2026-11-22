@@ -71,13 +71,21 @@ class DispatcharrApi(
             .build()
         return runCatching {
             http.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return null
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "status HTTP ${response.code}")
+                    return null
+                }
                 val body = response.body?.string().orEmpty()
-                if (body.isBlank()) return null
-                json.decodeFromString<Status>(body)
+                if (body.isBlank()) {
+                    Log.w(TAG, "status empty body")
+                    return null
+                }
+                val parsed = json.decodeFromString<Status>(body)
                     .channels
                     .filter { it.channelId.isNotBlank() }
                     .map { LiveChannel(it.channelId, it.channelName.ifBlank { "Channel" }, it.clientCount) }
+                Log.d(TAG, "status ok: ${parsed.size} channel(s) live")
+                parsed
             }
         }.onFailure {
             // Never log the request: the URL is fine, but the response body is not something to

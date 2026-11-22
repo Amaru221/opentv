@@ -362,8 +362,12 @@ fun HomeScreen(
                 // something about the line rather than about the catalogue.
                 if (liveNow.isNotEmpty()) {
                     item(key = "rail-live-now") {
+                        // Observed here, inside the item, so this composable subscribes itself —
+                        // reading it up in the parent and passing an Int is what left the entry
+                        // stuck on the first composition.
+                        val liveCount by viewModel.liveCount.collectAsState()
                         RailEntry(
-                            label = stringResource(R.string.guide_live_now, liveNow.count { it.channelId in liveIds }),
+                            label = stringResource(R.string.guide_live_now, liveCount),
                             selected = liveNowOnly,
                             onClick = viewModel::selectLiveNow,
                             modifier = if (liveNowOnly) Modifier.focusRequester(railFocusRequester) else Modifier,
@@ -411,7 +415,7 @@ fun HomeScreen(
                     favouritesSelected = favouritesOnly,
                     selectedCategory = selectedCategory,
                     scopeName = scopeName,
-                    liveCount = liveNow.size,
+                    liveCount = viewModel.liveCount,
                     liveSelected = liveNowOnly,
                     onLive = viewModel::selectLiveNow,
                     onFavourites = viewModel::selectFavourites,
@@ -1222,7 +1226,7 @@ private fun CategoryChips(
     favouritesSelected: Boolean,
     selectedCategory: String?,
     scopeName: String?,
-    liveCount: Int,
+    liveCount: kotlinx.coroutines.flow.StateFlow<Int>,
     liveSelected: Boolean,
     onLive: () -> Unit,
     onFavourites: () -> Unit,
@@ -1230,6 +1234,10 @@ private fun CategoryChips(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Collected *here*, not passed in as an Int: a composable that reads the state itself is the
+    // one that recomposes when it changes. Passing the value from the parent left this row stuck on
+    // its first composition, when the count was still 0.
+    val liveCount by liveCount.collectAsState()
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(vertical = 8.dp),

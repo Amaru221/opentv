@@ -349,6 +349,11 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     private val _liveChannels = MutableStateFlow<List<DispatcharrApi.LiveChannel>>(emptyList())
     val liveChannels: StateFlow<List<DispatcharrApi.LiveChannel>> = _liveChannels.asStateFlow()
 
+    private val _liveCount = MutableStateFlow(0)
+
+    /** How many channels are streaming right now, as its own flow so the UI can observe it directly. */
+    val liveCount: StateFlow<Int> = _liveCount.asStateFlow()
+
     private val liveStatusVisible = MutableStateFlow(false)
 
     /** The guide calls this on the way in and out: no polling while it is not on screen. */
@@ -367,9 +372,11 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
                     } else {
                         graph.dispatcharrApi.liveChannels(url, key).orEmpty()
                     }
+                    _liveCount.value = _liveChannels.value.size
                     delay(10_000)
                 }
                 _liveChannels.value = emptyList()
+                _liveCount.value = 0
             }
         }
     }
