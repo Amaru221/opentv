@@ -118,6 +118,7 @@
     <string name="player_aspect_fill">Rellenar</string>
     <string name="player_aspect_stretch">Estirar</string>
     <string name="player_aspect_ratio_title">Relación de aspecto</string>
+    <string name="player_live">EN DIRECTO</string>
     <string name="player_none_available">Ninguno disponible</string>
     <string name="player_subtitles_off">Desactivado</string>
     <string name="settings_providers_title">Proveedores</string>
