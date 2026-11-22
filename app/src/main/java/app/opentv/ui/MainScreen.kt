@@ -121,7 +121,16 @@ fun MainScreen(
     val settings = remember { AppSettings.get(context) }
     val graph = remember { ServiceLocator.get(context) }
     val sources by graph.sourceRepository.observeAll().collectAsState(initial = emptyList())
+    val enabledSources = sources.filter { it.enabled }
     val selectedSource by settings.guideSource.collectAsState()
+    // If the selected provider was switched off (or removed), fall back to "all sources". Guarded
+    // on a non-empty list because the first emission is empty, not "the user has no providers".
+    LaunchedEffect(sources, enabledSources, selectedSource) {
+        if (sources.isEmpty()) return@LaunchedEffect
+        if (selectedSource != null && enabledSources.none { it.id == selectedSource }) {
+            settings.setGuideSource(null)
+        }
+    }
     // The provider list lives behind the sidebar logo: choosing a provider is a once-in-a-session
     // decision, so it does not deserve a permanent row above the channels.
     var showSources by remember { mutableStateOf(false) }
@@ -235,7 +244,7 @@ fun MainScreen(
 
     if (showSources) {
         SourcePickerDialog(
-            sources = sources,
+            sources = enabledSources,
             selectedId = selectedSource,
             onSelect = { id ->
                 settings.setGuideSource(id)

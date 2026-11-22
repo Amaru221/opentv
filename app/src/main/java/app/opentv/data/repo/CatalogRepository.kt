@@ -409,7 +409,8 @@ class CatalogRepository(
         val source = sourceDao.byId(movie.sourceId)
 
         // 1) Provider back-fill from get_vod_info, for a still-bare row on an Xtream source.
-        if (!result.isEnriched && source?.kind == SourceKind.XTREAM) {
+        // A disabled provider is never contacted; re-enabling lets a later open fill the row in.
+        if (!result.isEnriched && source?.enabled == true && source.kind == SourceKind.XTREAM) {
             val info = runCatching { api.movieInfo(source, result.streamId) }.getOrNull()
             if (info != null) {
                 result = result.copy(
@@ -459,7 +460,8 @@ class CatalogRepository(
         val source = sourceDao.byId(series.sourceId)
 
         // 1) Provider back-fill from get_series_info, for a still-bare row on an Xtream source.
-        if (!result.isEnriched && source?.kind == SourceKind.XTREAM) {
+        // A disabled provider is never contacted; re-enabling lets a later open fill the row in.
+        if (!result.isEnriched && source?.enabled == true && source.kind == SourceKind.XTREAM) {
             val info = runCatching { api.seriesInfo(source, result.seriesId) }.getOrNull()
             if (info != null) {
                 result = result.copy(
@@ -601,6 +603,7 @@ class CatalogRepository(
 
     /** Series episodes are fetched lazily — panels are slow and most series are never opened. */
     suspend fun ensureEpisodes(source: Source, seriesId: String) {
+        if (!source.enabled) return
         if (source.kind != SourceKind.XTREAM) return
         runCatching { api.episodes(source, seriesId) }
             .onSuccess { if (it.isNotEmpty()) episodeDao.upsertAll(it) }

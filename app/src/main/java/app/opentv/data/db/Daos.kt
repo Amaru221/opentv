@@ -61,16 +61,26 @@ interface SourceDao {
 interface ChannelDao {
     @Query(
         """
-        SELECT * FROM channels
-        WHERE hidden = 0
-          AND (:sourceId IS NULL OR sourceId = :sourceId)
-          AND (:categoryId IS NULL OR categoryId = :categoryId)
-        ORDER BY sortIndex, displayName
+        SELECT c.* FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE s.enabled = 1
+          AND c.hidden = 0
+          AND (:sourceId IS NULL OR c.sourceId = :sourceId)
+          AND (:categoryId IS NULL OR c.categoryId = :categoryId)
+        ORDER BY c.sortIndex, c.displayName
         """
     )
     fun observe(sourceId: Long?, categoryId: String?): Flow<List<Channel>>
 
-    @Query("SELECT * FROM channels WHERE favourite = 1 AND hidden = 0 ORDER BY sortIndex, displayName")
+    /** Favourites stay in the database when a provider is off, but the guide hides them. */
+    @Query(
+        """
+        SELECT c.* FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE c.favourite = 1 AND c.hidden = 0 AND s.enabled = 1
+        ORDER BY c.sortIndex, c.displayName
+        """
+    )
     fun observeFavourites(): Flow<List<Channel>>
 
     /**
@@ -81,9 +91,10 @@ interface ChannelDao {
      */
     @Query(
         """
-        SELECT * FROM channels
-        WHERE hidden = 0 AND categoryId IN (:categoryIds)
-        ORDER BY sortIndex, displayName
+        SELECT c.* FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE c.hidden = 0 AND c.categoryId IN (:categoryIds) AND s.enabled = 1
+        ORDER BY c.sortIndex, c.displayName
         """
     )
     fun observeInCategories(categoryIds: List<String>): Flow<List<Channel>>
@@ -98,10 +109,12 @@ interface ChannelDao {
      */
     @Query(
         """
-        SELECT * FROM channels
-        WHERE (:sourceId IS NULL OR sourceId = :sourceId)
-          AND categoryId IN (:categoryIds)
-        ORDER BY sortIndex, displayName
+        SELECT c.* FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE (:sourceId IS NULL OR c.sourceId = :sourceId)
+          AND c.categoryId IN (:categoryIds)
+          AND s.enabled = 1
+        ORDER BY c.sortIndex, c.displayName
         """
     )
     fun observeInCategoriesIncludingHidden(sourceId: Long?, categoryIds: List<String>): Flow<List<Channel>>
@@ -114,10 +127,12 @@ interface ChannelDao {
      */
     @Query(
         """
-        SELECT * FROM channels
-        WHERE (:sourceId IS NULL OR sourceId = :sourceId)
-          AND categoryId = :categoryId
-        ORDER BY sortIndex, displayName
+        SELECT c.* FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE (:sourceId IS NULL OR c.sourceId = :sourceId)
+          AND c.categoryId = :categoryId
+          AND s.enabled = 1
+        ORDER BY c.sortIndex, c.displayName
         """
     )
     suspend fun channelsInCategoryIncludingHidden(sourceId: Long?, categoryId: String): List<Channel>
@@ -129,20 +144,22 @@ interface ChannelDao {
      */
     @Query(
         """
-        SELECT sourceId, categoryId, COUNT(*) AS count
-        FROM channels
-        WHERE categoryId IS NOT NULL
-        GROUP BY sourceId, categoryId
+        SELECT c.sourceId, c.categoryId, COUNT(*) AS count
+        FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE c.categoryId IS NOT NULL AND s.enabled = 1
+        GROUP BY c.sourceId, c.categoryId
         """
     )
     suspend fun channelCountsByCategory(): List<CategoryChannelCount>
 
     @Query(
         """
-        SELECT * FROM channels
-        WHERE hidden = 0
-          AND (displayName LIKE '%' || :query || '%' OR name LIKE '%' || :query || '%')
-        ORDER BY favourite DESC, sortIndex, displayName
+        SELECT c.* FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE c.hidden = 0 AND s.enabled = 1
+          AND (c.displayName LIKE '%' || :query || '%' OR c.name LIKE '%' || :query || '%')
+        ORDER BY c.favourite DESC, c.sortIndex, c.displayName
         LIMIT :limit
         """
     )
@@ -151,9 +168,11 @@ interface ChannelDao {
     /** Like [search] but keeps hidden channels in — the channel manager needs them to unhide. */
     @Query(
         """
-        SELECT * FROM channels
-        WHERE (displayName LIKE '%' || :query || '%' OR name LIKE '%' || :query || '%')
-        ORDER BY hidden, favourite DESC, sortIndex, displayName
+        SELECT c.* FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE s.enabled = 1
+          AND (c.displayName LIKE '%' || :query || '%' OR c.name LIKE '%' || :query || '%')
+        ORDER BY c.hidden, c.favourite DESC, c.sortIndex, c.displayName
         LIMIT :limit
         """
     )
@@ -165,9 +184,10 @@ interface ChannelDao {
     /** Every quality variant of one logical channel, best first. */
     @Query(
         """
-        SELECT * FROM channels
-        WHERE groupKey = :groupKey AND groupKey != '' AND hidden = 0
-        ORDER BY qualityRank DESC, displayName
+        SELECT c.* FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE c.groupKey = :groupKey AND c.groupKey != '' AND c.hidden = 0 AND s.enabled = 1
+        ORDER BY c.qualityRank DESC, c.displayName
         """
     )
     suspend fun variantsInGroup(groupKey: String): List<Channel>
@@ -180,7 +200,13 @@ interface ChannelDao {
      * screen tell "the guide is still building from channels on disk" apart from "nothing loaded",
      * so a failed or empty sync surfaces an error instead of spinning forever.
      */
-    @Query("SELECT COUNT(*) FROM channels WHERE hidden = 0")
+    @Query(
+        """
+        SELECT COUNT(*) FROM channels c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE c.hidden = 0 AND s.enabled = 1
+        """
+    )
     fun observeVisibleCount(): Flow<Int>
 
     @Query("UPDATE channels SET favourite = :favourite WHERE id = :id")
@@ -289,12 +315,26 @@ interface ChannelDao {
 
 @Dao
 interface CategoryDao {
-    @Query("SELECT * FROM categories WHERE kind = :kind ORDER BY sortIndex, name")
+    @Query(
+        """
+        SELECT c.* FROM categories c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE c.kind = :kind AND s.enabled = 1
+        ORDER BY c.sortIndex, c.name
+        """
+    )
     fun observe(kind: StreamKind): Flow<List<Category>>
 
-    /** One-shot list of every category of a kind, ordered like [observe] — the web manager reads
-     * the live categories once per request rather than subscribing to a Flow. */
-    @Query("SELECT * FROM categories WHERE kind = :kind ORDER BY sortIndex, name")
+    /** One-shot list of every enabled provider's categories of a kind, ordered like [observe] —
+     * the web manager reads the live categories once per request rather than subscribing. */
+    @Query(
+        """
+        SELECT c.* FROM categories c
+        INNER JOIN sources s ON s.id = c.sourceId
+        WHERE c.kind = :kind AND s.enabled = 1
+        ORDER BY c.sortIndex, c.name
+        """
+    )
     suspend fun allByKind(kind: StreamKind): List<Category>
 
     /** Minimal id+name rows for the re-normalise pass. */
@@ -316,7 +356,15 @@ data class CategoryChannelCount(val sourceId: Long, val categoryId: String, val 
 
 @Dao
 interface EpgFeedDao {
-    @Query("SELECT * FROM epg_feeds ORDER BY builtIn DESC, id")
+    /** Provider feeds disappear with their provider; built-in and custom feeds have no provider. */
+    @Query(
+        """
+        SELECT f.* FROM epg_feeds f
+        LEFT JOIN sources s ON s.id = f.providerSourceId
+        WHERE f.providerSourceId IS NULL OR s.enabled = 1
+        ORDER BY f.builtIn DESC, f.id
+        """
+    )
     fun observeAll(): Flow<List<EpgFeed>>
 
     @Query("SELECT * FROM epg_feeds")
