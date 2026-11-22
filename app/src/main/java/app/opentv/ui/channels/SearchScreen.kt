@@ -76,15 +76,21 @@ fun SearchScreen(
     viewModel: ChannelsViewModel = viewModel(),
     vodViewModel: VodViewModel = viewModel(),
 ) {
-    var query by remember { mutableStateOf("") }
+    // The ViewModel owns the text so switching the guide's category can clear it, even while a
+    // previous search screen instance is still on the back stack.
+    val query by viewModel.searchQuery.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val scopedToCategory = selectedCategory != null
     val channelResults by viewModel.searchResults.collectAsState()
     val movieResults by vodViewModel.movieResults.collectAsState()
     val seriesResults by vodViewModel.seriesResults.collectAsState()
-    val anyResults = channelResults.isNotEmpty() || movieResults.isNotEmpty() || seriesResults.isNotEmpty()
+    val anyResults = channelResults.isNotEmpty() ||
+        (!scopedToCategory && (movieResults.isNotEmpty() || seriesResults.isNotEmpty()))
 
     LaunchedEffect(query) {
         viewModel.setSearchQuery(query)
-        vodViewModel.setVodSearchQuery(query)
+        // A live category has no VOD equivalent: scoping to it means channels only.
+        vodViewModel.setVodSearchQuery(if (scopedToCategory) "" else query)
     }
     BackHandler { onBack() }
 
@@ -117,10 +123,10 @@ fun SearchScreen(
 
         Row(Modifier.fillMaxSize()) {
             OnScreenKeyboard(
-                onKey = { if (query.length < 40) query += it },
-                onSpace = { if (query.length < 40) query += " " },
-                onBackspace = { query = query.dropLast(1) },
-                onClear = { query = "" },
+                onKey = { if (query.length < 40) viewModel.setSearchQuery(query + it) },
+                onSpace = { if (query.length < 40) viewModel.setSearchQuery("$query ") },
+                onBackspace = { viewModel.setSearchQuery(query.dropLast(1)) },
+                onClear = { viewModel.setSearchQuery("") },
             )
 
             Spacer(Modifier.width(28.dp))
@@ -137,7 +143,7 @@ fun SearchScreen(
                                 SearchResultRow(row = row, onClick = { onPlayChannel(row.primary) })
                             }
                         }
-                        if (movieResults.isNotEmpty()) {
+                        if (!scopedToCategory && movieResults.isNotEmpty()) {
                             item { SectionHeader(stringResource(R.string.nav_movies)) }
                             items(movieResults, key = { "m${it.id}" }) { movie ->
                                 VodResultRow(movie.displayTitle, movie.posterUrl, movie.year?.toString()) {
@@ -145,7 +151,7 @@ fun SearchScreen(
                                 }
                             }
                         }
-                        if (seriesResults.isNotEmpty()) {
+                        if (!scopedToCategory && seriesResults.isNotEmpty()) {
                             item { SectionHeader(stringResource(R.string.nav_shows)) }
                             items(seriesResults, key = { "s${it.id}" }) { show ->
                                 VodResultRow(show.displayTitle, show.posterUrl, show.year?.toString()) {

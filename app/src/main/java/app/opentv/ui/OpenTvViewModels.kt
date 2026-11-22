@@ -569,31 +569,40 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun selectCategory(id: String?) {
+        val changed = selectedCategory.value != id
         favouritesOnly.value = false
         liveNowOnly.value = false
         selectedCategory.value = id
+        // The search is scoped to the open category, so changing category starts a fresh filter.
+        if (changed) searchInput.value = ""
     }
 
     fun selectFavourites() {
+        val changed = !favouritesOnly.value || selectedCategory.value != null
         favouritesOnly.value = true
         liveNowOnly.value = false
         selectedCategory.value = null
+        if (changed) searchInput.value = ""
     }
 
     /** "En emisión": only the channels already playing on another device. */
     fun selectLiveNow() {
+        val changed = !liveNowOnly.value || selectedCategory.value != null
         liveNowOnly.value = true
         favouritesOnly.value = false
         selectedCategory.value = null
+        if (changed) searchInput.value = ""
     }
 
     /** Switch the live guide's provider filter; the category resets since categories differ per source. */
     fun selectSource(sourceId: Long?) {
+        val changed = selectedSource.value != sourceId
         settings.setGuideSource(sourceId)
         settings.guideSourceChosen = true
         selectedCategory.value = null
         favouritesOnly.value = false
         liveNowOnly.value = false
+        if (changed) searchInput.value = ""
     }
 
     fun search(text: String) { query.value = text }
@@ -604,20 +613,44 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     // This path is channel-only — no programme window — debounced, and capped by the DAO's LIMIT.
     private val searchInput = MutableStateFlow("")
 
+    /** The search field's text, owned here so changing category can clear it. */
+    val searchQuery: StateFlow<String> = searchInput.asStateFlow()
+
     fun setSearchQuery(text: String) { searchInput.value = text }
+
+    private data class SearchKey(
+        val query: String,
+        val categoryKey: String?,
+        val categoryIds: List<String>?,
+    )
 
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val searchResults: StateFlow<List<Row>> =
-        searchInput
-            .map { it.trim() }
+        combine(searchInput.map { it.trim() }, selectedCategory, categoryGroups) { q, category, groups ->
+            SearchKey(
+                query = q,
+                categoryKey = category,
+                categoryIds = category?.let { key -> groups.firstOrNull { it.key == key }?.ids },
+            )
+        }
             .debounce(200)
             .distinctUntilChanged()
-            .flatMapLatest { q ->
-                if (q.length < 2) flowOf(emptyList())
-                else graph.catalogRepository.searchChannels(q)
-                    // No EPG here — group channels into rows with no now/next. Finding and
-                    // playing the channel is the job; guide detail would cost the slow query.
-                    .map { channels -> buildRows(channels, emptyMap(), System.currentTimeMillis()) }
+            .flatMapLatest { key ->
+                if (key.query.length < 2) flowOf(emptyList())
+                else graph.catalogRepository.searchChannels(key.query)
+                    .map { channels ->
+                        // A search opened from the guide stays inside the category the user is
+                        // looking at. With no category selected ("All channels"), search covers
+                        // the whole enabled catalogue as before.
+                        val scoped = when {
+                            key.categoryKey == null -> channels
+                            key.categoryIds == null -> emptyList()
+                            else -> channels.filter { it.categoryId in key.categoryIds }
+                        }
+                        // No EPG here — group channels into rows with no now/next. Finding and
+                        // playing the channel is the job; guide detail would cost the slow query.
+                        buildRows(scoped, emptyMap(), System.currentTimeMillis())
+                    }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
