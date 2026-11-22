@@ -1243,8 +1243,11 @@ private fun CategoryChips(
         contentPadding = PaddingValues(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (liveCount > 0) {
-            item(key = "chip-live-now") {
+        // The item is always present and the chip is conditional *inside* it. Wrapping the `item`
+        // itself in an `if` left the row composing only once — the chip never appeared even though
+        // the count was 2 by then. A fixed item slot plus a conditional child does render.
+        item(key = "chip-live-now") {
+            if (liveCount > 0) {
                 FilterChip(
                     selected = liveSelected,
                     onClick = onLive,
