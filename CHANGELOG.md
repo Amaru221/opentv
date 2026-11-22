@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.9
+
+- **Releases now use a stable signing key.** 0.12.7 and 0.12.8 were built by different GitHub
+  Actions runners, so each got a different throwaway debug key and Android refused to update one
+  over the other. This release is signed with a project keystore stored in the repository secrets,
+  so every future release can upgrade in place.
+- **One last reinstall is needed.** Because 0.12.8 used a different key, Android will refuse this
+  update too: uninstall OpenTV once and install 0.12.9. From here on, upgrades keep working and
+  app data is preserved. Back up or note your providers first — uninstalling clears app data.
+- No application behaviour changes in this release; it exists to fix signing.
+
 ## 0.12.8
 
 - **Set up Dispatcharr live status from your phone.** Typing a 40-character admin API key with a

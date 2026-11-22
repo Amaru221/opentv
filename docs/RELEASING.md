@@ -12,23 +12,22 @@ GitHub release.
 
 ## Signing
 
-**Right now, release builds are signed with the Android debug key.** This is deliberate, and
-it is temporary.
+Releases use the project's **upload keystore**, supplied to CI through four repository secrets:
+`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`. With those present,
+`release.yml` decodes the keystore and `app/build.gradle.kts` signs the release with it.
+
+If the secrets are absent — a fork without them, or a local build — Gradle falls back to the
+Android debug key so an installable APK is still produced. That fallback is **not
+upgrade-compatible**: a different debug key must never be used for two public releases. Releases
+0.12.7 and 0.12.8 were built that way, which is why installing one over the other fails. 0.12.9
+onwards use the stable key; users coming from 0.12.8 must uninstall once.
 
 An *unsigned* APK cannot be installed on Android at all — the installer rejects it before the
-user sees anything, with an error that explains nothing. That would mean no one can test the
-app until signing infrastructure exists. So `app/build.gradle.kts` falls back to the debug key
-when no keystore is configured, and the result installs fine.
-
-The cost, stated plainly: **when the project moves to a real keystore, Android will refuse to
-upgrade over a debug-signed install.** Everyone testing today will have to uninstall and
-reinstall, losing their settings. That is fine for a handful of early testers and completely
-unacceptable once there are hundreds. **Set up real signing before announcing the project
-publicly.**
+user sees anything, with an error that explains nothing. That is why the debug fallback exists.
 
 ### Setting up real signing
 
-1. Generate a keystore:
+1. Generate a keystore (use PKCS12; its key password is the store password):
 
    ```bash
    keytool -genkeypair -v -keystore upload.jks -keyalg RSA -keysize 4096 \
