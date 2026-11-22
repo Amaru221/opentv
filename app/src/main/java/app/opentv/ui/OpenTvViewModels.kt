@@ -245,8 +245,11 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     private val graph = ServiceLocator.get(app)
     private val settings = graph.settings
 
-    /** null = All. Exposed so the sidebar can highlight the active entry. */
-    val selectedCategory = MutableStateFlow<String?>(null)
+    /**
+     * null = All. Lives in [AppSettings] so the separate search screen's ViewModel sees the same
+     * open category; the sidebar still highlights it from here.
+     */
+    val selectedCategory: StateFlow<String?> = settings.guideCategory
     val favouritesOnly = MutableStateFlow(false)
     /** "En emisión": only the channels another device is already streaming right now. */
     val liveNowOnly = MutableStateFlow(false)
@@ -569,31 +572,40 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun selectCategory(id: String?) {
+        val changed = selectedCategory.value != id
         favouritesOnly.value = false
         liveNowOnly.value = false
-        selectedCategory.value = id
+        settings.setGuideCategory(id)
+        // The search is scoped to the open category, so changing category starts a fresh filter.
+        if (changed) clearSearch()
     }
 
     fun selectFavourites() {
+        val changed = !favouritesOnly.value || selectedCategory.value != null
         favouritesOnly.value = true
         liveNowOnly.value = false
-        selectedCategory.value = null
+        settings.setGuideCategory(null)
+        if (changed) clearSearch()
     }
 
     /** "En emisión": only the channels already playing on another device. */
     fun selectLiveNow() {
+        val changed = !liveNowOnly.value || selectedCategory.value != null
         liveNowOnly.value = true
         favouritesOnly.value = false
-        selectedCategory.value = null
+        settings.setGuideCategory(null)
+        if (changed) clearSearch()
     }
 
     /** Switch the live guide's provider filter; the category resets since categories differ per source. */
     fun selectSource(sourceId: Long?) {
+        val changed = selectedSource.value != sourceId
         settings.setGuideSource(sourceId)
         settings.guideSourceChosen = true
-        selectedCategory.value = null
+        settings.setGuideCategory(null)
         favouritesOnly.value = false
         liveNowOnly.value = false
+        if (changed) clearSearch()
     }
 
     fun search(text: String) { query.value = text }
@@ -602,22 +614,50 @@ class ChannelsViewModel(app: Application) : AndroidViewModel(app) {
     // Kept separate from the guide's `rows` on purpose: `rows` loads the entire 12-hour EPG
     // window, which is far too heavy to run on every keystroke (that was the ~30s search lag).
     // This path is channel-only — no programme window — debounced, and capped by the DAO's LIMIT.
-    private val searchInput = MutableStateFlow("")
+    /**
+     * The search field's text lives in [AppSettings], not this ViewModel: the Home screen and the
+     * Search screen are different ViewModels/back-stack entries, and a category change on one has
+     * to clear the filter on the other.
+     */
+    val searchQuery: StateFlow<String> = settings.guideSearch
 
-    fun setSearchQuery(text: String) { searchInput.value = text }
+    fun setSearchQuery(text: String) { settings.setGuideSearch(text) }
+
+    private fun clearSearch() { settings.setGuideSearch("") }
+
+    private data class SearchKey(
+        val query: String,
+        val categoryKey: String?,
+        val categoryIds: List<String>?,
+    )
 
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val searchResults: StateFlow<List<Row>> =
-        searchInput
-            .map { it.trim() }
+        combine(settings.guideSearch.map { it.trim() }, selectedCategory, categoryGroups) { q, category, groups ->
+            SearchKey(
+                query = q,
+                categoryKey = category,
+                categoryIds = category?.let { key -> groups.firstOrNull { it.key == key }?.ids },
+            )
+        }
             .debounce(200)
             .distinctUntilChanged()
-            .flatMapLatest { q ->
-                if (q.length < 2) flowOf(emptyList())
-                else graph.catalogRepository.searchChannels(q)
-                    // No EPG here — group channels into rows with no now/next. Finding and
-                    // playing the channel is the job; guide detail would cost the slow query.
-                    .map { channels -> buildRows(channels, emptyMap(), System.currentTimeMillis()) }
+            .flatMapLatest { key ->
+                if (key.query.length < 2) flowOf(emptyList())
+                else graph.catalogRepository.searchChannels(key.query)
+                    .map { channels ->
+                        // A search opened from the guide stays inside the category the user is
+                        // looking at. With no category selected ("All channels"), search covers
+                        // the whole enabled catalogue as before.
+                        val scoped = when {
+                            key.categoryKey == null -> channels
+                            key.categoryIds == null -> emptyList()
+                            else -> channels.filter { it.categoryId in key.categoryIds }
+                        }
+                        // No EPG here — group channels into rows with no now/next. Finding and
+                        // playing the channel is the job; guide detail would cost the slow query.
+                        buildRows(scoped, emptyMap(), System.currentTimeMillis())
+                    }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

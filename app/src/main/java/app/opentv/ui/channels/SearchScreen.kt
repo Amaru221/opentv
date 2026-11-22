@@ -55,6 +55,7 @@ import app.opentv.data.model.shownName
 import app.opentv.data.parser.displayTitle
 import app.opentv.ui.ChannelsViewModel
 import app.opentv.ui.VodViewModel
+import app.opentv.ui.rememberScreenInfo
 import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -76,15 +77,21 @@ fun SearchScreen(
     viewModel: ChannelsViewModel = viewModel(),
     vodViewModel: VodViewModel = viewModel(),
 ) {
-    var query by remember { mutableStateOf("") }
+    // The ViewModel owns the text so switching the guide's category can clear it, even while a
+    // previous search screen instance is still on the back stack.
+    val query by viewModel.searchQuery.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val scopedToCategory = selectedCategory != null
     val channelResults by viewModel.searchResults.collectAsState()
     val movieResults by vodViewModel.movieResults.collectAsState()
     val seriesResults by vodViewModel.seriesResults.collectAsState()
-    val anyResults = channelResults.isNotEmpty() || movieResults.isNotEmpty() || seriesResults.isNotEmpty()
+    val anyResults = channelResults.isNotEmpty() ||
+        (!scopedToCategory && (movieResults.isNotEmpty() || seriesResults.isNotEmpty()))
 
     LaunchedEffect(query) {
         viewModel.setSearchQuery(query)
-        vodViewModel.setVodSearchQuery(query)
+        // A live category has no VOD equivalent: scoping to it means channels only.
+        vodViewModel.setVodSearchQuery(if (scopedToCategory) "" else query)
     }
     BackHandler { onBack() }
 
@@ -115,43 +122,94 @@ fun SearchScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        Row(Modifier.fillMaxSize()) {
+        val keyboard: @Composable (Modifier) -> Unit = { modifier ->
             OnScreenKeyboard(
-                onKey = { if (query.length < 40) query += it },
-                onSpace = { if (query.length < 40) query += " " },
-                onBackspace = { query = query.dropLast(1) },
-                onClear = { query = "" },
+                onKey = { if (query.length < 40) viewModel.setSearchQuery(query + it) },
+                onSpace = { if (query.length < 40) viewModel.setSearchQuery("$query ") },
+                onBackspace = { viewModel.setSearchQuery(query.dropLast(1)) },
+                onClear = { viewModel.setSearchQuery("") },
+                modifier = modifier,
             )
+        }
 
-            Spacer(Modifier.width(28.dp))
+        // On a phone the keyboard needs the full width, so stack results above it. On a TV or a
+        // landscape phone there is room for the original keyboard-left / results-right split.
+        if (rememberScreenInfo().isCompact) {
+            Column(Modifier.fillMaxSize()) {
+                SearchResultsPane(
+                    query = query,
+                    channelResults = channelResults,
+                    movieResults = movieResults,
+                    seriesResults = seriesResults,
+                    scopedToCategory = scopedToCategory,
+                    anyResults = anyResults,
+                    onPlayChannel = onPlayChannel,
+                    onPlayMovie = onPlayMovie,
+                    onOpenSeries = onOpenSeries,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+                keyboard(Modifier)
+            }
+        } else {
+            Row(Modifier.fillMaxSize()) {
+                keyboard(Modifier.weight(1f))
+                Spacer(Modifier.width(28.dp))
+                SearchResultsPane(
+                    query = query,
+                    channelResults = channelResults,
+                    movieResults = movieResults,
+                    seriesResults = seriesResults,
+                    scopedToCategory = scopedToCategory,
+                    anyResults = anyResults,
+                    onPlayChannel = onPlayChannel,
+                    onPlayMovie = onPlayMovie,
+                    onOpenSeries = onOpenSeries,
+                    modifier = Modifier.weight(1f).fillMaxSize(),
+                )
+            }
+        }
+    }
+}
 
-            Column(Modifier.weight(1f).fillMaxSize()) {
-                when {
-                    query.isBlank() -> Hint(stringResource(R.string.search_start_hint))
-                    query.trim().length < 2 -> Hint(stringResource(R.string.common_keep_typing))
-                    !anyResults -> Hint(stringResource(R.string.search_no_results, query))
-                    else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (channelResults.isNotEmpty()) {
-                            item { SectionHeader(stringResource(R.string.common_channels)) }
-                            items(channelResults, key = { "c${it.key}" }) { row ->
-                                SearchResultRow(row = row, onClick = { onPlayChannel(row.primary) })
-                            }
+@Composable
+private fun SearchResultsPane(
+    query: String,
+    channelResults: List<ChannelsViewModel.Row>,
+    movieResults: List<Movie>,
+    seriesResults: List<Series>,
+    scopedToCategory: Boolean,
+    anyResults: Boolean,
+    onPlayChannel: (Channel) -> Unit,
+    onPlayMovie: (Movie) -> Unit,
+    onOpenSeries: (Series) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        when {
+            query.isBlank() -> Hint(stringResource(R.string.search_start_hint))
+            query.trim().length < 2 -> Hint(stringResource(R.string.common_keep_typing))
+            !anyResults -> Hint(stringResource(R.string.search_no_results, query))
+            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (channelResults.isNotEmpty()) {
+                    item { SectionHeader(stringResource(R.string.common_channels)) }
+                    items(channelResults, key = { "c${it.key}" }) { row ->
+                        SearchResultRow(row = row, onClick = { onPlayChannel(row.primary) })
+                    }
+                }
+                if (!scopedToCategory && movieResults.isNotEmpty()) {
+                    item { SectionHeader(stringResource(R.string.nav_movies)) }
+                    items(movieResults, key = { "m${it.id}" }) { movie ->
+                        VodResultRow(movie.displayTitle, movie.posterUrl, movie.year?.toString()) {
+                            onPlayMovie(movie)
                         }
-                        if (movieResults.isNotEmpty()) {
-                            item { SectionHeader(stringResource(R.string.nav_movies)) }
-                            items(movieResults, key = { "m${it.id}" }) { movie ->
-                                VodResultRow(movie.displayTitle, movie.posterUrl, movie.year?.toString()) {
-                                    onPlayMovie(movie)
-                                }
-                            }
-                        }
-                        if (seriesResults.isNotEmpty()) {
-                            item { SectionHeader(stringResource(R.string.nav_shows)) }
-                            items(seriesResults, key = { "s${it.id}" }) { show ->
-                                VodResultRow(show.displayTitle, show.posterUrl, show.year?.toString()) {
-                                    onOpenSeries(show)
-                                }
-                            }
+                    }
+                }
+                if (!scopedToCategory && seriesResults.isNotEmpty()) {
+                    item { SectionHeader(stringResource(R.string.nav_shows)) }
+                    items(seriesResults, key = { "s${it.id}" }) { show ->
+                        VodResultRow(show.displayTitle, show.posterUrl, show.year?.toString()) {
+                            onOpenSeries(show)
                         }
                     }
                 }
