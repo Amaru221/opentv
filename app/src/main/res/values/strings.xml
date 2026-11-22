@@ -238,6 +238,9 @@
     <string name="live_status_url">Dispatcharr address</string>
     <string name="live_status_key">API key</string>
     <string name="live_status_slots">Provider lines</string>
+    <string name="live_status_summary_configured">Dispatcharr: configured · %1$d line(s)</string>
+    <string name="live_status_summary_not_configured">Dispatcharr: not configured</string>
+    <string name="live_status_configure_phone">Configure from phone</string>
     <string name="providers_empty">No providers yet. Add the IPTV service you already pay for to get started.</string>
     <string name="providers_remove_confirm">Remove?</string>
     <string name="providers_yes_remove">Yes, remove</string>

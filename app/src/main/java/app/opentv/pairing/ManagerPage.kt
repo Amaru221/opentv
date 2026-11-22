@@ -141,6 +141,20 @@ object ManagerPage {
               </div>
             </details>
 
+            <details class="rec" id="liveCard">
+              <summary>Live status (Dispatcharr)</summary>
+              <div class="body">
+                <p class="hint">Optional. If your provider is fronted by Dispatcharr, the guide can show which channels are already being watched. The admin API key stays on the TV — leave the field blank here to keep the one already saved. Save with the address empty to switch the feature off.</p>
+                <label class="field"><span>Dispatcharr address</span>
+                  <input id="liveUrl" placeholder="http://192.168.0.10:8000" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+                <label class="field"><span>API key</span>
+                  <input id="liveKey" type="password" autocomplete="off"></label>
+                <label class="field"><span>Provider lines</span>
+                  <input id="liveSlots" type="number" min="1" max="16" inputmode="numeric" value="2"></label>
+                <button class="save" id="liveSave">Save live status</button>
+              </div>
+            </details>
+
             <details class="rec" id="recCard">
               <summary>Recording to NAS (SMB)</summary>
               <div class="body">
@@ -464,6 +478,35 @@ object ManagerPage {
               .catch(function(){ setStatus(UNREACH, 'err'); });
           };
 
+          // ---- Live status (Dispatcharr) ------------------------------------------------------
+          async function loadLiveStatus(){
+            try {
+              var s = await getJson('/live-status');
+              el('liveUrl').value = s.url || '';
+              el('liveSlots').value = s.slots || 2;
+              el('liveKey').value = '';
+              el('liveKey').placeholder = s.hasKey ? '•••• (saved — leave blank to keep)' : 'Admin API key';
+            } catch (e) { /* leave the form blank if the TV can't be reached yet */ }
+          }
+          el('liveSave').onclick = function(){
+            var body = {
+              url: el('liveUrl').value.trim(),
+              key: el('liveKey').value,
+              slots: parseInt(el('liveSlots').value, 10) || 2
+            };
+            setStatus('Saving…');
+            post('/live-status', body)
+              .then(function(r){
+                if (r && r.ok === false) { setStatus(r.error || 'Could not save live status', 'err'); return; }
+                el('liveKey').value = '';
+                el('liveKey').placeholder = body.url
+                  ? '•••• (saved — leave blank to keep)'
+                  : 'Admin API key';
+                setStatus(body.url ? 'Live status saved' : 'Live status switched off', 'ok');
+              })
+              .catch(function(){ setStatus(UNREACH, 'err'); });
+          };
+
           // ---- Add a provider ----------------------------------------------------------------
           function provType(){ return el('provKind').value; }
           function syncProvFields(){
@@ -512,6 +555,7 @@ object ManagerPage {
 
           loadMeta();
           loadRecording();
+          loadLiveStatus();
         </script>
         </body>
         </html>
